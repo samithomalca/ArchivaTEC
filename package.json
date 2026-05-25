@@ -8,6 +8,8 @@
         "start": "bun run index.ts",
         "db:generate": "drizzle-kit generate",
         "db:migrate": "drizzle-kit migrate",
+        "db:reset": "supabase db reset",
+        "db:setup": "supabase db reset && supabase db seed",
         "db:studio": "drizzle-kit studio",
         "test": "bun test"
     },

@@ -1,8 +1,8 @@
 {
   "$schema": "https://openapi.vercel.sh/vercel.json",
   "functions": {
-    "index.ts": {
-      "runtime": "bun"
+    "api/**/*.js": {
+      "runtime": "nodejs20.x"
     }
   },
   "outputDirectory": "public"

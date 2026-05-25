@@ -24,3 +24,6 @@ jobs:
 
       - name: Push database changes
         run: supabase db push --linked
+
+      - name: Apply seed data
+        run: supabase db query --linked --file supabase/seed.sql
