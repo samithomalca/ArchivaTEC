@@ -1,4 +1,9 @@
 {
   "$schema": "https://openapi.vercel.sh/vercel.json",
+  "functions": {
+    "index.ts": {
+      "runtime": "bun"
+    }
+  },
   "outputDirectory": "public"
 }
