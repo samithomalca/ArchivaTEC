@@ -15,7 +15,7 @@ function getDefaultPermisos() {
 }
 
 function normalizePermisos(row) {
-  const isAdmin = String(row?.role || '').toUpperCase().includes('ADMIN')
+  const isAdmin = String(row?.rol || '').toUpperCase().includes('ADMIN')
 
   if (isAdmin) {
     return {
