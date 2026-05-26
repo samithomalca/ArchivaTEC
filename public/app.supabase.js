@@ -84,20 +84,21 @@ async function loadCurrentProfile() {
   }
 
   const { data: profile, error: profileError } = await client
-    .from('profiles')
-    .select('id, username, display_name, division, role, crear_usuarios, subir_archivos, modificar_archivos, eliminar_archivos, ver_otras_divisiones')
+    .from('usuarios')
+    .select('id, nombre, email, rol, division, crear_usuarios, subir_archivos, modificar_archivos, eliminar_archivos, ver_otras_divisiones')
     .eq('id', data.user.id)
     .single()
 
   if (profileError || !profile) {
+    console.error('Error al cargar perfil desde tabla usuarios:', profileError)
     return null
   }
 
   return {
-    id: data.user.id,
-    email: data.user.email,
-    nombre: profile.display_name || data.user.email,
-    rol: profile.role || 'Usuario de Consulta',
+    id: profile.id,
+    email: profile.email,
+    nombre: profile.nombre || profile.email,
+    rol: profile.rol || 'Usuario de Consulta',
     division: profile.division || '',
     permisos: normalizePermisos(profile),
   }
