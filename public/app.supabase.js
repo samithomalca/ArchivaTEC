@@ -123,6 +123,107 @@ async function syncAuthState() {
   return profile
 }
 
+// ─── AUTH UI HELPERS ───────────────────────────────────────────
+window.toggleAuthMode = function(mode) {
+  const loginForm = document.getElementById('login-form')
+  const signupForm = document.getElementById('signup-form')
+  const loginErr = document.getElementById('login-error')
+  const signupErr = document.getElementById('signup-error')
+  const signupSucc = document.getElementById('signup-success')
+
+  loginErr.classList.add('hidden')
+  signupErr.classList.add('hidden')
+  signupSucc.classList.add('hidden')
+
+  if (mode === 'signup') {
+    loginForm.classList.add('hidden')
+    signupForm.classList.remove('hidden')
+  } else {
+    signupForm.classList.add('hidden')
+    loginForm.classList.remove('hidden')
+  }
+}
+
+const signupForm = document.getElementById('signup-form')
+if (signupForm) {
+  signupForm.onsubmit = async (e) => {
+    e.preventDefault()
+
+    const btn = document.getElementById('signup-btn')
+    const err = document.getElementById('signup-error')
+    const succ = document.getElementById('signup-success')
+    const name = document.getElementById('reg-name').value.trim()
+    const email = document.getElementById('reg-email').value.trim()
+    const pass = document.getElementById('reg-password').value
+    const code = document.getElementById('reg-code').value.trim()
+
+    btn.querySelector('.btn-text').classList.add('hidden')
+    btn.querySelector('.btn-loader').classList.remove('hidden')
+    btn.disabled = true
+    err.classList.add('hidden')
+    succ.classList.add('hidden')
+
+    try {
+      // 1. Validar Código Maestro
+      if (code !== 'archivatec26') {
+        throw new Error('El Código de Acceso Especial es incorrecto.')
+      }
+
+      const client = await bootstrapSupabase()
+
+      // 2. Registro en Supabase Auth
+      const { data: authData, error: authError } = await client.auth.signUp({
+        email,
+        password: pass,
+        options: {
+          data: {
+            display_name: name
+          }
+        }
+      })
+
+      if (authError) throw authError
+
+      // 3. Crear Perfil en la tabla pública
+      // Nota: Si tienes un trigger en la BD que lo haga solo, esto fallará con conflicto,
+      // pero por ahora lo hacemos manual para asegurar consistencia.
+      if (authData.user) {
+        const { error: profileError } = await client
+          .from('profiles')
+          .insert([
+            {
+              id: authData.user.id,
+              username: email.split('@')[0],
+              display_name: name,
+              role: 'Usuario de Consulta',
+              division: 'NUEVO INGRESO'
+            }
+          ])
+        
+        // Si el perfil ya se creó por trigger, lo ignoramos
+        if (profileError && profileError.code !== '23505') {
+          console.error('Error al crear perfil:', profileError)
+        }
+      }
+
+      succ.textContent = '¡Cuenta creada! Por favor, revisa tu correo para confirmar tu cuenta antes de iniciar sesión.'
+      succ.classList.remove('hidden')
+      signupForm.reset()
+      
+      // Volver al login después de un momento
+      setTimeout(() => toggleAuthMode('login'), 5000)
+
+    } catch (ex) {
+      err.textContent = ex.message || 'No se pudo crear la cuenta'
+      err.classList.remove('hidden')
+    } finally {
+      btn.querySelector('.btn-text').classList.remove('hidden')
+      btn.querySelector('.btn-loader').classList.add('hidden')
+      btn.disabled = false
+    }
+  }
+}
+
 async function api(method, path, body) {
   await bootstrapSupabase()
 
