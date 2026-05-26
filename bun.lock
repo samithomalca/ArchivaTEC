@@ -5,7 +5,6 @@
     "": {
       "name": "muñecas",
       "dependencies": {
-        "@electric-sql/pglite": "^0.4.5",
         "@hono/swagger-ui": "^0.6.1",
         "@hono/zod-validator": "^0.8.0",
         "@supabase/supabase-js": "^2.106.2",

@@ -11,8 +11,8 @@ import {
 import { relations } from 'drizzle-orm'
 
 // ─── Tipos de enum simulados con varchar ─────────────────────────
-// PGlite (PostgreSQL en WASM) no soporta CREATE TYPE ... AS ENUM.
-// Usamos varchar con .$type<> para conservar el tipado TypeScript.
+// Usamos varchar con .$type<> para conservar el tipado TypeScript
+// y asegurar máxima compatibilidad con motores PostgreSQL.
 
 type RolEnum             = 'ADMIN' | 'ARCHIVISTA' | 'CONSULTA' | 'DIGITALIZADOR'
 type TipoDocumentoEnum   = 'ACADEMICO' | 'ADMINISTRATIVO' | 'FINANCIERO' | 'PERSONAL'

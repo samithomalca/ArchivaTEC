@@ -6,7 +6,7 @@
 
 1. **Bun**: Usamos Bun como runtime. Asegúrate de usar la versión más reciente (`bun upgrade`).
 2. **Editor**: Recomendamos **VS Code** con las extensiones de *TypeScript*, *ESLint* y *Drizzle*.
-3. **Base de Datos**: Por defecto, el proyecto usa **PGlite**. No necesitas instalar PostgreSQL en tu máquina para empezar. Los datos se guardan en `./data/archivistica.db`.
+3. **Base de Datos**: El proyecto usa **Supabase (PostgreSQL)** exclusivamente. Asegúrate de configurar la `DATABASE_URL` en tu archivo `.env` local apuntando a tu instancia de Supabase.
 
 ## 🏗️ Arquitectura
 
@@ -20,7 +20,7 @@ El proyecto sigue una estructura modular:
 1. **Rutas**: Define tus rutas en `src/modules/[modulo]/[modulo].routes.ts`.
 2. **Validación**: Usa `Zod` para validar la entrada de las peticiones.
 3. **Esquema**: Si necesitas cambiar la base de datos, edita `src/infrastructure/database/schema.ts` y corre `bun run db:generate`.
-4. **Migraciones**: El archivo `src/infrastructure/database/migrate.ts` contiene una inicialización manual para PGlite. Si añades tablas, asegúrate de añadirlas ahí también para que se creen automáticamente en desarrollo.
+4. **Migraciones**: El esquema se inicializa automáticamente al arrancar el servidor mediante scripts idempotentes. Para cambios mayores, usa `supabase db push`.
 
 ## 🧪 Pruebas
 

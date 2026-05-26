@@ -20,18 +20,16 @@ Este archivo sirve como fuente de verdad técnica y de contexto global para cual
 El backend está desarrollado sobre **Bun** y **Hono** en una arquitectura de capas bien definida:
 1. **Rutas e Inyección (`src/api`)**: Define los endpoints Http y middlewares.
 2. **Servicios (`src/application`)**: Contiene la lógica de negocio pura.
-3. **Persistencia e Infraestructura (`src/infrastructure`)**:
+### Persistencia e Infraestructura (`src/infrastructure`)
    - ORM: **Drizzle ORM**
-   - Driver BD: **PGlite** (embebido en memoria/disco local en modo desarrollo) y **Postgres-js** (en producción).
+   - Driver BD: **Postgres-js** (conectando exclusivamente a Supabase PostgreSQL).
+   - Migraciones: Controladas por **Drizzle Kit** y sincronizadas con **Supabase CLI**.
 
-### ⚠️ Limitación Crítica de PGlite (¡IMPORTANTE!)
-**PGlite** es un motor de base de datos PostgreSQL ligero compilado a WebAssembly. Tiene dos limitaciones fundamentales que debes respetar estrictamente:
-1. **No soporta tipos ENUM de Postgres (`CREATE TYPE ... AS ENUM`)**: Intentar crearlos o usarlos con la función `pgEnum` de Drizzle hará que el motor colapse lanzando un `RuntimeError: Aborted()`.
-   - **Regla**: Todos los campos que requieran ser enumeraciones deben definirse como `varchar` estándar de longitud apropiada con casting de tipo en TypeScript: `.varchar('nombre_campo', { length: 50 }).$type<UnionDeLiterales>()`.
-2. **Requiere inicialización de pgcrypto y directorio de manera explícita**:
-   - `gen_random_uuid()` no funciona a menos que se ejecute primero `CREATE EXTENSION IF NOT EXISTS pgcrypto`.
-   - El driver NodeFS fallará si no existe previamente la carpeta padre `./data` para alojar la BD. Esto se resuelve en `client.ts` con un `mkdirSync('./data', { recursive: true })` antes de la inicialización.
-3. **Uso de DDL seguro**: Evita los `try/catch` de colapso en PGlite usando sentencias SQL explícitas de la forma `CREATE TABLE IF NOT EXISTS` y `ALTER TABLE ... ADD COLUMN IF NOT EXISTS`.
+### ⚠️ Base de Datos Única: Supabase
+El sistema depende exclusivamente de una instancia de **Supabase** para todos los entornos (desarrollo y producción). 
+1. **Configuración**: Asegúrate de tener configurado `DATABASE_URL` en tu archivo `.env` o en Vercel.
+2. **PostgreSQL Estándar**: Se usa PostgreSQL real, permitiendo el uso de extensiones nativas (como `pgcrypto` para `gen_random_uuid()`).
+3. **Idempotencia**: Los scripts de inicialización (`migrate.ts`) usan `IF NOT EXISTS` para ser ejecutados de forma segura en cada arranque.
 
 ---
 

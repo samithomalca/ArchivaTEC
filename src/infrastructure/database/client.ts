@@ -1,30 +1,19 @@
-import { PGlite } from '@electric-sql/pglite'
-import { drizzle as drizzlePGlite } from 'drizzle-orm/pglite'
-import { drizzle as drizzlePostgres } from 'drizzle-orm/postgres-js'
+import { drizzle } from 'drizzle-orm/postgres-js'
 import postgres from 'postgres'
-import { mkdirSync } from 'fs'
 import { env } from '../../config/env'
 import * as schema from './schema'
 
 function createDb() {
-  // Modo desarrollo sin BD real → PGlite (PostgreSQL embebido en proceso)
-  if (env.NODE_ENV === 'development' && env.DATABASE_URL.includes('localhost')) {
-    console.log('🗄️  Usando PGlite (PostgreSQL embebido) en modo desarrollo')
-    // Crear el directorio padre si no existe (requerido por PGlite/NodeFS)
-    mkdirSync('./data', { recursive: true })
-    const client = new PGlite('./data/archivistica.db')
-    // pgcrypto habilita gen_random_uuid() en PGlite (no viene activo por defecto)
-    client.exec('CREATE EXTENSION IF NOT EXISTS pgcrypto;').catch(() => {})
-    return drizzlePGlite(client, { schema })
-  }
-
-  // Producción o BD real → postgres-js con pool de conexiones
+  console.log('🗄️  Conectando a base de datos PostgreSQL (Supabase)')
+  
+  // Conexión única con postgres-js para todos los entornos
   const queryClient = postgres(env.DATABASE_URL, {
-    max: 10,
+    max: env.NODE_ENV === 'production' ? 1 : 10,
     idle_timeout: 20,
     connect_timeout: 10,
   })
-  return drizzlePostgres(queryClient, { schema })
+  
+  return drizzle(queryClient, { schema })
 }
 
 export const db = createDb()
