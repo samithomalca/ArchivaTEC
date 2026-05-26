@@ -303,6 +303,9 @@ async function openSupabaseLoginFlow() {
 }
 
 window.addEventListener('load', async () => {
+  const loginScreen = document.getElementById('login-screen')
+  const appScreen = document.getElementById('app')
+
   try {
     await openSupabaseLoginFlow()
     const session = await getSession()
@@ -310,17 +313,27 @@ window.addEventListener('load', async () => {
     if (session?.access_token) {
       token = session.access_token
       localStorage.setItem('token', token)
+      
       const profile = await loadCurrentProfile()
       if (profile) {
         currentUser = profile
         currentPermisos = profile.permisos
         currentDivision = profile.division || ''
+        
+        // Solo entramos si todo está validado
         await legacyEnterApp()
+        return // Salimos para no mostrar el login
       }
     }
-  } catch {
-    // Si no hay sesión activa, el usuario seguirá en el login
+  } catch (err) {
+    console.error('Error durante la carga inicial:', err)
   }
+
+  // Si llegamos aquí es porque no hay sesión o falló el perfil
+  token = ''
+  localStorage.removeItem('token')
+  appScreen.classList.add('hidden')
+  loginScreen.classList.remove('hidden')
 })
 
 const loginForm = document.getElementById('login-form')
