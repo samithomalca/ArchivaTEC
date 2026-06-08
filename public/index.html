@@ -340,6 +340,19 @@
 </div>
 
 <!-- ─── TOAST ──────────────────────────────────────────────────────── -->
+<!-- Modal Visor PDF -->
+<div id="pdf-modal" class="modal-overlay hidden">
+  <div class="modal-content pdf-modal-content">
+    <div class="modal-header">
+      <h3 id="pdf-modal-title">Visor de Documento</h3>
+      <button class="modal-close" onclick="closePdfModal()">×</button>
+    </div>
+    <div class="modal-body" style="padding: 0; height: 80vh;">
+      <iframe id="pdf-viewer" src="" width="100%" height="100%" style="border: none;"></iframe>
+    </div>
+  </div>
+</div>
+
 <div id="toast-container" class="toast-container"></div>
 
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>

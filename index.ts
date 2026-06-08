@@ -11,7 +11,13 @@ console.log(`
 `)
 
 // Inicializar BD (crea tablas y admin por defecto)
-await initDatabase()
+// Lo envolvemos en un try/catch para que el servidor inicie incluso si no hay conexión (modo demo)
+try {
+  await initDatabase()
+} catch (e: any) {
+  console.error('⚠️ No se pudo conectar a la base de datos:', e.message || e)
+  console.error('El sistema iniciará en MODO DEMO (sin persistencia).')
+}
 
 Bun.serve({
   port: env.PORT,

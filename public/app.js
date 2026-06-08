@@ -3,7 +3,87 @@ const API = '/api/v1'
 let token = localStorage.getItem('token') || ''
 let currentUser = null
 
-// ─── PERMISOS GLOBALES (RBAC) ─────────────────────────────────────
+// ─── GESTIÓN DE PDF ───────────────────────────────────────────
+function openPdfModal(title, url) {
+  const modal = document.getElementById('pdf-modal')
+  const viewer = document.getElementById('pdf-viewer')
+  const titleEl = document.getElementById('pdf-modal-title')
+
+  titleEl.textContent = title
+  viewer.src = url
+  modal.classList.remove('hidden')
+}
+
+function closePdfModal() {
+  const modal = document.getElementById('pdf-modal')
+  const viewer = document.getElementById('pdf-viewer')
+  viewer.src = ''
+  modal.classList.add('hidden')
+}
+
+async function handleFileUpload(expedienteId, callback) {
+  const input = document.createElement('input')
+  input.type = 'file'
+  input.accept = 'application/pdf'
+
+  input.onchange = async (e) => {
+    const file = e.target.files[0]
+    if (!file) return
+
+    const formData = new FormData()
+    formData.append('file', file)
+
+    try {
+      toast('Subiendo archivo...', 'info')
+      const response = await fetch(`${API}/digitalizacion/upload/${expedienteId}`, {
+        method: 'POST',
+        headers: {
+          ...(token ? { Authorization: `Bearer ${token}` } : {}),
+        },
+        body: formData
+      })
+
+      const res = await response.json()
+      if (res.success) {
+        toast('Archivo subido correctamente', 'success')
+        if (callback) callback()
+      } else {
+        toast(res.error || 'Error al subir archivo', 'error')
+      }
+    } catch (err) {
+      console.error(err)
+      toast('Error de conexión al subir archivo', 'error')
+    }
+  }
+
+  input.click()
+}
+
+async function deletePdf(id, callback) {
+  if (!confirm('¿Estás seguro de eliminar este documento? Esta acción no se puede deshacer.')) return
+
+  try {
+    const response = await fetch(`${API}/digitalizacion/${id}`, {
+      method: 'DELETE',
+      headers: {
+        ...(token ? { Authorization: `Bearer ${token}` } : {}),
+      }
+    })
+
+    const res = await response.json()
+    if (res.success) {
+      toast('Documento eliminado', 'success')
+      if (callback) callback()
+    } else {
+      toast(res.error || 'Error al eliminar', 'error')
+    }
+  } catch (err) {
+    console.error(err)
+    toast('Error al eliminar documento', 'error')
+  }
+}
+
+// ─── PERMISOS GLOBALES (RBAC) ───────────────────────────────────
 // Valores por defecto seguros (todo cerrado hasta que se cargue el perfil)
 let currentPermisos = {
   crearUsuarios:      false,
@@ -610,9 +690,50 @@ function renderRootFolders(container) {
     </div>`
 }
 
+async function loadDigitalizaciones(expedienteId, containerId) {
+  const container = document.getElementById(containerId)
+  if (!container) return
+  
+  container.innerHTML = '<p class="terminal-folder-sub">Cargando documentos...</p>'
+  
+  try {
+    const res = await api('GET', `/digitalizacion/expediente/${expedienteId}`)
+    const files = res.data || []
+    
+    if (files.length === 0) {
+      container.innerHTML = '<p class="terminal-folder-sub">No hay documentos digitalizados para este expediente.</p>'
+      return
+    }
+    
+    container.innerHTML = `
+      <div class="pdf-list">
+        ${files.map(f => `
+          <div class="pdf-item">
+            <span class="pdf-icon">📄</span>
+            <div class="pdf-info">
+              <div class="pdf-name" title="${f.urlArchivo.split('/').pop()}">${f.urlArchivo.split('/').pop()}</div>
+              <div class="pdf-meta">${new Date(f.creadoEn).toLocaleDateString()} · ${f.formatoArchivo}</div>
+            </div>
+            <div class="pdf-actions">
+              <button class="btn-pdf-action btn-pdf-view" onclick="openPdfModal('Documento', '${f.urlArchivo}')" title="Visualizar">👁️</button>
+              <button class="btn-pdf-action btn-pdf-delete" onclick="deletePdf('${f.id}', () => loadDigitalizaciones('${expedienteId}', '${containerId}'))" title="Eliminar">🗑️</button>
+            </div>
+          </div>
+        `).join('')}
+      </div>`
+  } catch (err) {
+    console.error(err)
+    container.innerHTML = '<p class="terminal-folder-sub" style="color:var(--orange);">Error al cargar documentos.</p>'
+  }
+}
+
 // ── Renderiza hijos de un nodo ────────────────────────────────
 function renderFolderChildren(container, node) {
   if (!node.children || node.children.length === 0) {
+    // Usamos el código de la serie como ID de expediente para la demo/prototipo
+    const expedienteId = node.code 
+    const containerId = `pdf-container-${node.code.replace(/\./g, '-')}`
+
     container.innerHTML = `
       <div class="section-header">
         <h3 class="section-title">${node.code} ${node.name}</h3>
@@ -625,7 +746,20 @@ function renderFolderChildren(container, node) {
           <span class="terminal-chip">📂 Serie: <strong>${node.code}</strong></span>
           <span class="terminal-chip">🗂 ${node.name}</span>
         </div>
+        
+        <div class="pdf-management-section" style="width: 100%;">
+          <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px;">
+            <h4 style="font-size: 14px; color: var(--blue);">Documentos Digitalizados</h4>
+            <button class="btn btn-purple btn-sm" onclick="handleFileUpload('${expedienteId}', () => loadDigitalizaciones('${expedienteId}', '${containerId}'))">
+              + Subir PDF
+            </button>
+          </div>
+          <div id="${containerId}"></div>
+        </div>
       </div>`
+    
+    // Cargar digitalizaciones asíncronamente
+    setTimeout(() => loadDigitalizaciones(expedienteId, containerId), 100)
     return
   }
 
