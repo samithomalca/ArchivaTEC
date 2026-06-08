@@ -172,5 +172,12 @@ export async function initDatabase() {
       verOtrasDivisiones: true,
     })
     console.log('👤 Usuario admin creado: admin@itse.edu.mx')
+  } else {
+    // Asegurar que la contraseña sea admin123 incluso si ya existe
+    const passwordHash = await Bun.password.hash('admin123')
+    await db.update(usuarios)
+      .set({ passwordHash })
+      .where(eq(usuarios.email, 'admin@itse.edu.mx'))
+    console.log('👤 Contraseña de admin actualizada a: admin123')
   }
 }
