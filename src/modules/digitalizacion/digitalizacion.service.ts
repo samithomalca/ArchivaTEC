@@ -1,5 +1,5 @@
 import { db } from '../../infrastructure/database/client'
-import { digitalizaciones, expedientes } from '../../infrastructure/database/schema'
+import { digitalizaciones, expedientes, cajas, ubicaciones } from '../../infrastructure/database/schema'
 import { eq, and, sql } from 'drizzle-orm'
 import { HTTPException } from 'hono/http-exception'
 import type { DigitalizacionDTO, ActualizarEstadoDTO, DigitalizacionQueryDTO } from './digitalizacion.schema'
@@ -34,33 +34,84 @@ export class DigitalizacionService {
   }
 
   async obtenerPorExpediente(expedienteId: string) {
+    // Si no es un UUID, buscar primero el ID real por el código (numero_expediente)
+    let realId = expedienteId
+    const isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(expedienteId)
+    
+    if (!isUuid) {
+      const [exp] = await db.select({ id: expedientes.id }).from(expedientes).where(eq(expedientes.numeroExpediente, expedienteId)).limit(1)
+      if (exp) realId = exp.id
+      else return [] // No hay expediente, no hay digitalizaciones
+    }
+
     return db
       .select()
       .from(digitalizaciones)
-      .where(eq(digitalizaciones.expedienteId, expedienteId))
+      .where(eq(digitalizaciones.expedienteId, realId))
       .orderBy(sql`${digitalizaciones.creadoEn} DESC`)
   }
 
   async iniciar(data: DigitalizacionDTO, operadorId: string) {
-    // Verificar que el expediente exista
-    const [exp] = await db
-      .select({ id: expedientes.id, estado: expedientes.estado })
-      .from(expedientes)
-      .where(eq(expedientes.id, data.expedienteId))
-      .limit(1)
+    let expId: string | null = null
+    const isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(data.expedienteId)
 
-    if (!exp) throw new HTTPException(404, { message: 'Expediente no encontrado' })
+    if (isUuid) {
+      const [exp] = await db.select({ id: expedientes.id }).from(expedientes).where(eq(expedientes.id, data.expedienteId)).limit(1)
+      if (exp) expId = exp.id
+    } else {
+      const [exp] = await db.select({ id: expedientes.id }).from(expedientes).where(eq(expedientes.numeroExpediente, data.expedienteId)).limit(1)
+      if (exp) expId = exp.id
+    }
+
+    // Si no existe, crear placeholder
+    if (!expId) {
+      let [ub] = await db.select({ id: ubicaciones.id }).from(ubicaciones).where(eq(ubicaciones.codigo, 'TEMP-01')).limit(1)
+      if (!ub) {
+        [ub] = await db.insert(ubicaciones).values({
+          codigo: 'TEMP-01',
+          salon: 'Archivo Digital',
+          estante: 0, fila: 0, columna: 0,
+          descripcion: 'Ubicación temporal para digitalización directa'
+        }).returning()
+      }
+
+      let [cj] = await db.select({ id: cajas.id }).from(cajas).where(eq(cajas.numeroCaja, 'CAJA-AUTO')).limit(1)
+      if (!cj) {
+        [cj] = await db.insert(cajas).values({
+          numeroCaja: 'CAJA-AUTO',
+          tipoDocumento: 'DIGITAL',
+          fechaInicio: new Date(),
+          ubicacionId: ub.id,
+          descripcion: 'Caja automática para expedientes digitalizados'
+        }).returning()
+      }
+
+      const [newExp] = await db.insert(expedientes).values({
+        numeroExpediente: data.expedienteId,
+        nombreTitular: `Expediente Serie ${data.expedienteId}`,
+        tipoExpediente: 'SERIE_DOCUMENTAL',
+        fechaIngreso: new Date(),
+        cajaId: cj.id,
+        estado: 'DIGITALIZADO'
+      }).returning()
+      
+      expId = newExp.id
+    }
 
     const [nueva] = await db
       .insert(digitalizaciones)
-      .values({ ...data, operadorId, estado: 'COMPLETADO' })
+      .values({ 
+        ...data, 
+        expedienteId: expId,
+        operadorId, 
+        estado: 'COMPLETADO' 
+      })
       .returning()
 
-    // Actualizar URL del digitalizado en el expediente (último archivo subido)
     await db
       .update(expedientes)
       .set({ digitalizadoUrl: data.urlArchivo, estado: 'DIGITALIZADO' })
-      .where(eq(expedientes.id, data.expedienteId))
+      .where(eq(expedientes.id, expId))
 
     return nueva
   }
@@ -75,8 +126,6 @@ export class DigitalizacionService {
         const file = Bun.file(filePath)
         if (await file.exists()) {
           // Bun no tiene unlink directo fácil, pero podemos usar fs o similar
-          // pero Bun.write(path, "") no lo borra.
-          // Usaremos import { unlink } from 'node:fs/promises'
         }
       } catch (e) {
         console.error('Error al borrar archivo físico:', e)
@@ -85,7 +134,6 @@ export class DigitalizacionService {
 
     await db.delete(digitalizaciones).where(eq(digitalizaciones.id, id))
     
-    // Verificar si quedan más digitalizaciones para ese expediente
     const rest = await this.obtenerPorExpediente(dig.expedienteId)
     if (rest.length === 0) {
       await db

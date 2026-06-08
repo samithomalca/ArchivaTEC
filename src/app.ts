@@ -64,6 +64,13 @@ app.post('/api/usuarios', authMiddleware, validateBody(CreateUsuarioSchema), asy
 })
 
 // ─── API v1 ───────────────────────────────────────────────────────
+app.get('/api/config', (c) => {
+  return c.json({
+    supabaseUrl: env.SUPABASE_URL,
+    supabaseAnonKey: env.SUPABASE_ANON_KEY,
+  })
+})
+
 const api = app.basePath('/api/v1')
 
 api.route('/auth', authRoutes)

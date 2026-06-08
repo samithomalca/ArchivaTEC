@@ -43,15 +43,20 @@ async function handleFileUpload(expedienteId, callback) {
         body: formData
       })
 
-      const res = await response.json()
+      const res = await response.json().catch(e => {
+        console.error('Error parseando JSON:', e)
+        return { success: false, error: 'Respuesta del servidor no es válida' }
+      })
+
       if (res.success) {
         toast('Archivo subido correctamente', 'success')
         if (callback) callback()
       } else {
+        console.error('Error devuelto por el servidor:', res)
         toast(res.error || 'Error al subir archivo', 'error')
       }
     } catch (err) {
-      console.error(err)
+      console.error('Error de red/fetch:', err)
       toast('Error de conexión al subir archivo', 'error')
     }
   }
