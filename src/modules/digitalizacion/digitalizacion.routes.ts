@@ -13,6 +13,8 @@ import { authMiddleware } from '../../middleware/auth.middleware'
 import { requireRole } from '../../middleware/rbac.middleware'
 import { HTTPException } from 'hono/http-exception'
 
+import { storageService } from '../../infrastructure/storage/supabase-storage'
+
 export const digitalizacionRoutes = new Hono()
 
 digitalizacionRoutes.use('*', authMiddleware)
@@ -40,6 +42,8 @@ digitalizacionRoutes.get('/:id', async (c) => {
 digitalizacionRoutes.post('/upload/:expedienteId', requireRole('DIGITALIZADOR', 'ARCHIVISTA', 'ADMIN'), async (c) => {
   const expedienteId = c.req.param('expedienteId')
   const user = c.get('user')
+  console.log(`📂 Iniciando subida a SUPABASE STORAGE para expediente: ${expedienteId}`)
+
   const body = await c.req.parseBody()
   const file = body['file'] as any
   
@@ -52,24 +56,28 @@ digitalizacionRoutes.post('/upload/:expedienteId', requireRole('DIGITALIZADOR', 
   }
 
   const fileName = `${Date.now()}-${file.name.replace(/\s+/g, '_')}`
-  const filePath = `public/uploads/${fileName}`
+  const filePath = `digitalizados/${fileName}`
   
-  const bytes = await file.arrayBuffer()
-  await Bun.write(filePath, bytes)
-  
-  const urlArchivo = `/uploads/${fileName}`
-  
-  // Registrar en la BD (usamos valores por defecto para metadata técnica por ahora)
-  const result = await digitalizacionService.iniciar({
-    expedienteId,
-    urlArchivo,
-    totalPaginas: 1, 
-    checksumSha256: "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
-    resolucionDpi: 300,
-    formatoArchivo: 'PDF'
-  }, user.sub)
-  
-  return c.json({ success: true, data: result })
+  try {
+    const bytes = await file.arrayBuffer()
+    const publicUrl = await storageService.uploadFile('expedientes', filePath, bytes, 'application/pdf')
+    console.log(`✅ Archivo subido a Supabase: ${publicUrl}`)
+    
+    // Registrar en la BD
+    const result = await digitalizacionService.iniciar({
+      expedienteId,
+      urlArchivo: publicUrl,
+      totalPaginas: 1, 
+      checksumSha256: "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      resolucionDpi: 300,
+      formatoArchivo: 'PDF'
+    }, user.sub)
+    
+    return c.json({ success: true, data: result })
+  } catch (err: any) {
+    console.error('❌ Error en el flujo de Supabase Storage:', err)
+    throw new HTTPException(500, { message: `Error de almacenamiento: ${err.message}` })
+  }
 })
 
 // Iniciar una nueva digitalización (Crea el registro y asocia al expediente)
