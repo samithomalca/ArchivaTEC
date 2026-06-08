@@ -71,15 +71,19 @@ app.get('/api/config', (c) => {
   })
 })
 
-const api = app.basePath('/api/v1')
+const apiRoutes = new Hono()
+apiRoutes.route('/auth', authRoutes)
+apiRoutes.route('/usuarios', usuariosRoutes)
+apiRoutes.route('/cajas', cajasRoutes)
+apiRoutes.route('/ubicaciones', ubicacionesRoutes)
+apiRoutes.route('/expedientes', expedientesRoutes)
+apiRoutes.route('/prestamos', prestamosRoutes)
+apiRoutes.route('/digitalizacion', digitalizacionRoutes)
 
-api.route('/auth', authRoutes)
-app.route('/api/v1', usuariosRoutes)
-api.route('/expedientes', expedienteRoutes)
-api.route('/ubicaciones', ubicacionRoutes)
-api.route('/cajas', cajaRoutes)
-api.route('/prestamos', prestamoRoutes)
-api.route('/digitalizacion', digitalizacionRoutes)
+// Montar en ambos para evitar 404s
+app.route('/api', apiRoutes)
+app.route('/api/v1', apiRoutes)
+
 
 // ─── Frontend estático desde /public ─────────────────────────────
 app.get('/', serveStatic({ path: './public/index.html' }))
