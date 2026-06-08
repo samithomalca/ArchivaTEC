@@ -40,43 +40,60 @@ digitalizacionRoutes.get('/:id', async (c) => {
 
 // Subir un PDF para un expediente
 digitalizacionRoutes.post('/upload/:expedienteId', requireRole('DIGITALIZADOR', 'ARCHIVISTA', 'ADMIN'), async (c) => {
-  const expedienteId = c.req.param('expedienteId')
-  const user = c.get('user')
-  console.log(`📂 Iniciando subida a SUPABASE STORAGE para expediente: ${expedienteId}`)
-
-  const body = await c.req.parseBody()
-  const file = body['file'] as any
-  
-  if (!file || !(file instanceof File)) {
-    throw new HTTPException(400, { message: 'Archivo PDF no proporcionado' })
-  }
-
-  if (file.type !== 'application/pdf') {
-    throw new HTTPException(400, { message: 'Solo se permiten archivos PDF' })
-  }
-
-  const fileName = `${Date.now()}-${file.name.replace(/\s+/g, '_')}`
-  const filePath = `digitalizados/${fileName}`
-  
   try {
-    const bytes = await file.arrayBuffer()
-    const publicUrl = await storageService.uploadFile('expedientes', filePath, bytes, 'application/pdf')
-    console.log(`✅ Archivo subido a Supabase: ${publicUrl}`)
+    const expedienteId = c.req.param('expedienteId')
+    const user = c.get('user')
     
-    // Registrar en la BD
-    const result = await digitalizacionService.iniciar({
-      expedienteId,
-      urlArchivo: publicUrl,
-      totalPaginas: 1, 
-      checksumSha256: "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
-      resolucionDpi: 300,
-      formatoArchivo: 'PDF'
-    }, user.sub)
+    const body = await c.req.parseBody()
+    const file = body['file'] as any
     
-    return c.json({ success: true, data: result })
-  } catch (err: any) {
-    console.error('❌ Error en el flujo de Supabase Storage:', err)
-    throw new HTTPException(500, { message: `Error de almacenamiento: ${err.message}` })
+    if (!file || !(file instanceof File)) {
+      return c.json({ success: false, error: 'No se recibió un archivo válido' }, 400)
+    }
+
+    if (file.type !== 'application/pdf') {
+      return c.json({ success: false, error: 'Solo se permiten archivos PDF' }, 400)
+    }
+
+    const fileName = `${Date.now()}-${file.name.replace(/\s+/g, '_')}`
+    const filePath = `digitalizados/${fileName}`
+    
+    // 1. Subida a Storage
+    let publicUrl = ''
+    try {
+      const bytes = await file.arrayBuffer()
+      publicUrl = await storageService.uploadFile('expedientes', filePath, bytes, 'application/pdf')
+    } catch (storageErr: any) {
+      console.error('Error en Supabase Storage:', storageErr)
+      return c.json({ 
+        success: false, 
+        error: `Error al guardar en la nube: ${storageErr.message || 'Verifica que el bucket \"expedientes\" sea público'}` 
+      }, 500)
+    }
+    
+    // 2. Registro en Base de Datos
+    try {
+      const result = await digitalizacionService.iniciar({
+        expedienteId,
+        urlArchivo: publicUrl,
+        totalPaginas: 1, 
+        checksumSha256: "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        resolucionDpi: 300,
+        formatoArchivo: 'PDF'
+      }, user.sub)
+      
+      return c.json({ success: true, data: result })
+    } catch (dbErr: any) {
+      console.error('Error en Base de Datos:', dbErr)
+      return c.json({ 
+        success: false, 
+        error: `Archivo subido, pero no se pudo registrar en la BD: ${dbErr.message}` 
+      }, 500)
+    }
+
+  } catch (globalErr: any) {
+    console.error('Error crítico en subida:', globalErr)
+    return c.json({ success: false, error: `Error interno: ${globalErr.message}` }, 500)
   }
 })
 
