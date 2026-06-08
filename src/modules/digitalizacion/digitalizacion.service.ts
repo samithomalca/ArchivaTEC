@@ -70,7 +70,9 @@ export class DigitalizacionService {
         [ub] = await db.insert(ubicaciones).values({
           codigo: 'TEMP-01',
           salon: 'Archivo Digital',
-          estante: 0, fila: 0, columna: 0,
+          estante: 0, 
+          fila: 0, 
+          columna: 0,
           descripcion: 'Ubicación temporal para digitalización directa'
         }).returning()
       }
@@ -79,7 +81,7 @@ export class DigitalizacionService {
       if (!cj) {
         [cj] = await db.insert(cajas).values({
           numeroCaja: 'CAJA-AUTO',
-          tipoDocumento: 'DIGITAL',
+          tipoDocumento: 'ADMINISTRATIVO', // Valor de enum válido
           fechaInicio: new Date(),
           ubicacionId: ub.id,
           descripcion: 'Caja automática para expedientes digitalizados'
@@ -88,8 +90,8 @@ export class DigitalizacionService {
 
       const [newExp] = await db.insert(expedientes).values({
         numeroExpediente: data.expedienteId,
-        nombreTitular: `Expediente Serie ${data.expedienteId}`,
-        tipoExpediente: 'SERIE_DOCUMENTAL',
+        nombreTitular: `Serie ${data.expedienteId}`,
+        tipoExpediente: 'ADMINISTRATIVO', // Valor de enum válido
         fechaIngreso: new Date(),
         cajaId: cj.id,
         estado: 'DIGITALIZADO'
