@@ -86,8 +86,8 @@ app.route('/api/v1', apiRoutes)
 
 
 // ─── Frontend estático desde /public ─────────────────────────────
-app.get('/', serveStatic({ path: './public/index.html' }))
 app.use('/*', serveStatic({ root: './public' }))
+app.get('*', serveStatic({ path: './public/index.html' }))
 
 // ─── Manejo de errores y rutas no encontradas ─────────────────────
 app.onError(errorHandler)

@@ -1,9 +1,13 @@
 import { handle } from 'hono/vercel'
 import app from '../src/app'
+import { initDatabase } from '../src/infrastructure/database/migrate'
 
 export const config = {
   runtime: 'nodejs'
 }
+
+// Inicialización asíncrona (Vercel no permite await top-level fácilmente en serverless sin riesgo de timeout)
+initDatabase().catch(err => console.error('🔴 DB INIT ERROR:', err))
 
 // Manejador de errores para Vercel
 app.onError((err, c) => {
