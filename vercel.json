@@ -1,15 +1,14 @@
 {
-  "$schema": "https://openapi.vercel.sh/vercel.json",
-  "framework": null,
+  "version": 2,
   "outputDirectory": "public",
   "rewrites": [
     {
       "source": "/api/:path*",
-      "destination": "/index.ts"
+      "destination": "/api/index.ts"
     },
     {
       "source": "/health",
-      "destination": "/index.ts"
+      "destination": "/api/index.ts"
     }
   ]
 }

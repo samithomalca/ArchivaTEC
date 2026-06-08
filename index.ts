@@ -1,29 +1,29 @@
 import app from './src/app'
 import { env } from './src/config/env'
 import { initDatabase } from './src/infrastructure/database/migrate'
+import { handle } from 'hono/vercel'
 
-console.log(`
-╔══════════════════════════════════════════════╗
-║   🏛️  Sistema de Archivística AI-DLC          ║
-║   Runtime: Bun ${Bun.version}                       ║
-║   Entorno: ${env.NODE_ENV}                    ║
-╚══════════════════════════════════════════════╝
-`)
-
-// Inicializar BD (crea tablas y admin por defecto)
-// Lo envolvemos en un try/catch para que el servidor inicie incluso si no hay conexión (modo demo)
+// Inicializar BD
 try {
   await initDatabase()
 } catch (e: any) {
-  console.error('⚠️ No se pudo conectar a la base de datos:', e.message || e)
-  console.error('El sistema iniciará en MODO DEMO (sin persistencia).')
+  console.error('⚠️ Error BD:', e.message || e)
 }
 
-Bun.serve({
-  port: env.PORT,
-  fetch: app.fetch,
-})
+// ─── SOPORTE PARA BUN (LOCAL) ─────────────────────────────────────
+if (typeof Bun !== 'undefined') {
+  Bun.serve({
+    port: env.PORT,
+    fetch: app.fetch,
+  })
+  console.log(`✅ Servidor Bun corriendo en puerto ${env.PORT}`)
+}
 
-console.log(`✅ Servidor corriendo en http://localhost:${env.PORT}`)
-console.log(`📋 Health check: http://localhost:${env.PORT}/health`)
-console.log(`🔌 API base:     http://localhost:${env.PORT}/api/v1`)
+// ─── SOPORTE PARA VERCEL (NUBE) ───────────────────────────────────
+export const GET = handle(app)
+export const POST = handle(app)
+export const PATCH = handle(app)
+export const DELETE = handle(app)
+export const OPTIONS = handle(app)
+
+export default handle(app)
