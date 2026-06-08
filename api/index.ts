@@ -12,7 +12,9 @@ app.onError((err, c) => {
     success: false,
     error: 'Error interno en Vercel',
     message: err.message,
-    stack: process.env.NODE_ENV === 'development' ? err.stack : undefined
+    name: err.name,
+    stack: err.stack, // Exponemos el stack temporalmente para depurar
+    cause: err.cause
   }, 500)
 })
 

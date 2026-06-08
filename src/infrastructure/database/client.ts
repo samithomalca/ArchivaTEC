@@ -4,13 +4,14 @@ import { env } from '../../config/env'
 import * as schema from './schema'
 
 function createDb() {
-  console.log('🗄️  Conectando a base de datos PostgreSQL (Supabase)')
+  // En Vercel/Node.js, el pooler a veces da problemas si max es > 1 en serverless
+  const isVercel = process.env.VERCEL === '1' || process.env.NODE_ENV === 'production'
   
-  // Conexión única con postgres-js para todos los entornos
   const queryClient = postgres(env.DATABASE_URL, {
-    max: env.NODE_ENV === 'production' ? 1 : 10,
+    max: isVercel ? 1 : 10,
     idle_timeout: 20,
-    connect_timeout: 10,
+    connect_timeout: 30, // Aumentamos timeout por latencia de red
+    ssl: 'require',     // Forzamos SSL para Supabase
   })
   
   return drizzle(queryClient, { schema })
