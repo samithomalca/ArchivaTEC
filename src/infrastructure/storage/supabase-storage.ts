@@ -5,6 +5,10 @@ const supabase = createClient(env.SUPABASE_URL, env.SUPABASE_SERVICE_KEY)
 
 export const storageService = {
   async uploadFile(bucket: string, path: string, file: ArrayBuffer, contentType: string) {
+    if (!env.SUPABASE_URL || !env.SUPABASE_SERVICE_KEY) {
+      throw new Error('SUPABASE_URL y SUPABASE_SERVICE_KEY son requeridas para subir archivos. Verifica las variables de entorno en Vercel.')
+    }
+
     const { data, error } = await supabase.storage
       .from(bucket)
       .upload(path, file, {

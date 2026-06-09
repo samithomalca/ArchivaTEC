@@ -14,6 +14,7 @@ import { requireRole } from '../../middleware/rbac.middleware'
 import { HTTPException } from 'hono/http-exception'
 
 import { storageService } from '../../infrastructure/storage/supabase-storage'
+import { env } from '../../config/env'
 
 export const digitalizacionRoutes = new Hono()
 
@@ -55,6 +56,11 @@ digitalizacionRoutes.post('/upload/:expedienteId', requireRole('DIGITALIZADOR', 
       return c.json({ success: false, error: 'Solo se permiten archivos PDF' }, 400)
     }
 
+    const MAX_SIZE = 4 * 1024 * 1024 // 4MB — límite de Vercel Serverless
+    if (file.size > MAX_SIZE) {
+      return c.json({ success: false, error: 'El archivo no puede superar 4MB' }, 400)
+    }
+
     const fileName = `${Date.now()}-${file.name.replace(/\s+/g, '_')}`
     const filePath = `digitalizados/${fileName}`
     
@@ -62,7 +68,7 @@ digitalizacionRoutes.post('/upload/:expedienteId', requireRole('DIGITALIZADOR', 
     let publicUrl = ''
     try {
       const bytes = await file.arrayBuffer()
-      publicUrl = await storageService.uploadFile('expedientes', filePath, bytes, 'application/pdf')
+      publicUrl = await storageService.uploadFile(env.STORAGE_BUCKET, filePath, bytes, 'application/pdf')
     } catch (storageErr: any) {
       console.error('Error en Supabase Storage:', storageErr)
       return c.json({ 
