@@ -1193,48 +1193,11 @@ function switchCfgTab(tab) {
   }
 }
 
-// ── Datos demo para modo offline ──────────────────────────────
-const DEMO_USUARIOS = [
-  {
-    id: 'demo-1',
-    username: 'jgarcia',
-    nombre: 'Jesús García López',
-    division: 'Dirección General',
-    rol: 'Administrador',
-    permisos: { crearUsuarios: true, subirArchivos: true, modificarArchivos: true, eliminarArchivos: true, verOtrasDivisiones: true },
-  },
-  {
-    id: 'demo-2',
-    username: 'rmendez',
-    nombre: 'Rosa Méndez Juárez',
-    division: 'Subdirección de Academia',
-    rol: 'Gestor de Archivos',
-    permisos: { crearUsuarios: false, subirArchivos: true, modificarArchivos: true, eliminarArchivos: false, verOtrasDivisiones: true },
-  },
-  {
-    id: 'demo-3',
-    username: 'aperez',
-    nombre: 'Ana Pérez Castillo',
-    division: 'Subdirección de Extensión',
-    rol: 'Usuario de Consulta',
-    permisos: { crearUsuarios: false, subirArchivos: false, modificarArchivos: false, eliminarArchivos: false, verOtrasDivisiones: true },
-  },
-  {
-    id: 'demo-4',
-    username: 'chernandez',
-    nombre: 'Carlos Hernández Ruiz',
-    division: 'Subdirección de Administración',
-    rol: 'Gestor de Archivos',
-    permisos: { crearUsuarios: false, subirArchivos: true, modificarArchivos: true, eliminarArchivos: false, verOtrasDivisiones: true },
-  },
-]
-
 // Caché local de usuarios para operaciones de edición/eliminación sin reload
 let _usuariosCache = []
 
 /**
  * Carga la lista de usuarios desde la API.
- * Si el servidor no responde (modo demo), usa DEMO_USUARIOS.
  * Siempre verifica el permiso crearUsuarios antes de proceder.
  */
 async function loadUsuariosAdmin() {
@@ -1250,11 +1213,11 @@ async function loadUsuariosAdmin() {
   } catch (err) {
     if (err && (err.status === 403 || err.status === 401)) {
       toast('No tienes permiso para administrar usuarios', 'error')
-      tbody.innerHTML = '<tr><td colspan="5" class="table-empty">❌ Acceso denegado</td></tr>'
-      return
+    } else {
+      toast('No se pudo cargar la lista de usuarios', 'error')
     }
-    // Modo demo: usar datos de muestra (sólo si no es un error de autorización)
-    _usuariosCache = DEMO_USUARIOS.map(u => ({ ...u }))
+    tbody.innerHTML = '<tr><td colspan="5" class="table-empty">❌ Error al cargar usuarios</td></tr>'
+    return
   }
 
   renderUsuariosAdmin(_usuariosCache)

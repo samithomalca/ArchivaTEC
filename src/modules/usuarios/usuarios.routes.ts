@@ -19,7 +19,7 @@ function canManageUsers(user: any) {
   return user?.rol === 'ADMIN' || user?.permisos?.crearUsuarios === true
 }
 
-usuariosRoutes.post('/usuarios', authMiddleware, validateBody(CreateUsuarioSchema), async (c) => {
+usuariosRoutes.post('/', authMiddleware, validateBody(CreateUsuarioSchema), async (c) => {
   const caller = c.get('user') as any
   if (!canManageUsers(caller)) {
     throw new HTTPException(403, { message: 'No tienes permiso para crear usuarios' })
@@ -31,7 +31,7 @@ usuariosRoutes.post('/usuarios', authMiddleware, validateBody(CreateUsuarioSchem
   return c.json({ success: true, data: result }, 201)
 })
 
-usuariosRoutes.get('/usuarios', authMiddleware, async (c) => {
+usuariosRoutes.get('/', authMiddleware, async (c) => {
   const caller = c.get('user') as any
   if (!canManageUsers(caller)) {
     throw new HTTPException(403, { message: 'Acceso denegado' })
@@ -71,7 +71,7 @@ usuariosRoutes.get('/usuarios', authMiddleware, async (c) => {
   return c.json({ success: true, data })
 })
 
-usuariosRoutes.patch('/usuarios/:id', authMiddleware, validateBody(UpdateUsuarioSchema), async (c) => {
+usuariosRoutes.patch('/:id', authMiddleware, validateBody(UpdateUsuarioSchema), async (c) => {
   const caller = c.get('user') as any
   if (!canManageUsers(caller)) {
     throw new HTTPException(403, { message: 'No tienes permiso para editar usuarios' })
@@ -84,7 +84,7 @@ usuariosRoutes.patch('/usuarios/:id', authMiddleware, validateBody(UpdateUsuario
   return c.json({ success: true, data: result })
 })
 
-usuariosRoutes.delete('/usuarios/:id', authMiddleware, async (c) => {
+usuariosRoutes.delete('/:id', authMiddleware, async (c) => {
   const caller = c.get('user') as any
   if (!canManageUsers(caller)) {
     throw new HTTPException(403, { message: 'No tienes permiso para eliminar usuarios' })
