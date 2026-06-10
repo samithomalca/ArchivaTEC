@@ -74,10 +74,10 @@ app.get('/api/config', (c) => {
 const apiRoutes = new Hono()
 apiRoutes.route('/auth', authRoutes)
 apiRoutes.route('/usuarios', usuariosRoutes)
-apiRoutes.route('/cajas', cajasRoutes)
-apiRoutes.route('/ubicaciones', ubicacionesRoutes)
-apiRoutes.route('/expedientes', expedientesRoutes)
-apiRoutes.route('/prestamos', prestamosRoutes)
+apiRoutes.route('/cajas', cajaRoutes)
+apiRoutes.route('/ubicaciones', ubicacionRoutes)
+apiRoutes.route('/expedientes', expedienteRoutes)
+apiRoutes.route('/prestamos', prestamoRoutes)
 apiRoutes.route('/digitalizacion', digitalizacionRoutes)
 
 // Montar en ambos para evitar 404s
