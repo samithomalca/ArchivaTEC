@@ -120,19 +120,6 @@ export class DigitalizacionService {
 
   async eliminar(id: string) {
     const dig = await this.obtenerPorId(id)
-    
-    // Si es una URL local, intentar borrar el archivo físico
-    if (dig.urlArchivo.startsWith('/uploads/')) {
-      try {
-        const filePath = `public${dig.urlArchivo}`
-        const file = Bun.file(filePath)
-        if (await file.exists()) {
-          // Bun no tiene unlink directo fácil, pero podemos usar fs o similar
-        }
-      } catch (e) {
-        console.error('Error al borrar archivo físico:', e)
-      }
-    }
 
     await db.delete(digitalizaciones).where(eq(digitalizaciones.id, id))
     
