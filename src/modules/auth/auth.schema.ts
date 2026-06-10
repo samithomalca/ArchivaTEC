@@ -23,6 +23,7 @@ export const CreateUsuarioSchema = z.object({
   nombre: z.string().min(2).max(200),
   username: z.string().min(2).max(100),
   password: z.string().min(6).max(100),
+  rol: z.string().max(50).optional(),
   division: z.string().max(200).default(''),
   crearUsuarios:      z.boolean().default(false),
   subirArchivos:      z.boolean().default(true),
