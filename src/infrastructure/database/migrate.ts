@@ -149,6 +149,16 @@ export async function initDatabase() {
     )
   `))
 
+  // ─ Seguridad: bloquear acceso público vía PostgREST (anon/authenticated) ──
+  // El backend usa el rol "postgres" (BYPASSRLS), así que esto no afecta
+  // a la API. Sin políticas, RLS habilitado = denegado por defecto para
+  // las claves anon/authenticated expuestas en GET /api/config.
+  await tryExec(`ALTER TABLE cajas ENABLE ROW LEVEL SECURITY`)
+  await tryExec(`ALTER TABLE expedientes ENABLE ROW LEVEL SECURITY`)
+  await tryExec(`ALTER TABLE ubicaciones ENABLE ROW LEVEL SECURITY`)
+  await tryExec(`ALTER TABLE prestamos ENABLE ROW LEVEL SECURITY`)
+  await tryExec(`ALTER TABLE digitalizaciones ENABLE ROW LEVEL SECURITY`)
+
   console.log('✅ Esquema de base de datos listo')
 
   // ─── Seed: usuario admin por defecto ─────────────────────────────────────
