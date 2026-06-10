@@ -1,3 +1,4 @@
+import bcrypt from 'bcryptjs'
 import { db } from '../../infrastructure/database/client'
 import { usuarios } from '../../infrastructure/database/schema'
 import { eq } from 'drizzle-orm'
@@ -50,7 +51,7 @@ export class AuthService {
       throw new HTTPException(401, { message: 'Credenciales inválidas' })
     }
 
-    const passwordValid = await Bun.password.verify(data.password, user.passwordHash)
+    const passwordValid = await bcrypt.compare(data.password, user.passwordHash)
     if (!passwordValid) {
       throw new HTTPException(401, { message: 'Credenciales inválidas' })
     }
@@ -94,7 +95,7 @@ export class AuthService {
       throw new HTTPException(409, { message: 'El email ya está registrado' })
     }
 
-    const passwordHash = await Bun.password.hash(data.password)
+    const passwordHash = await bcrypt.hash(data.password, 10)
 
     const [newUser] = await db
       .insert(usuarios)
@@ -141,7 +142,7 @@ export class AuthService {
       throw new HTTPException(409, { message: 'El usuario ya existe' })
     }
 
-    const passwordHash = await Bun.password.hash(data.password)
+    const passwordHash = await bcrypt.hash(data.password, 10)
 
     // Normalizar el rol del string del frontend
     let rol: 'ADMIN' | 'ARCHIVISTA' | 'CONSULTA' = 'CONSULTA'
@@ -236,7 +237,7 @@ export class AuthService {
 
     // Hash de la nueva contraseña si se provee
     if (data.nuevaPassword) {
-      patch.passwordHash = await Bun.password.hash(data.nuevaPassword)
+      patch.passwordHash = await bcrypt.hash(data.nuevaPassword, 10)
     }
 
     if (Object.keys(patch).length === 0) {

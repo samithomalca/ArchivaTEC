@@ -1,3 +1,4 @@
+import bcrypt from 'bcryptjs'
 import { db } from './client.js'
 import { sql } from 'drizzle-orm'
 import { usuarios, ubicaciones, cajas, expedientes } from './schema.js'
@@ -158,7 +159,7 @@ export async function initDatabase() {
     .limit(1)
 
   if (!existingAdmin) {
-    const passwordHash = await Bun.password.hash('admin123')
+    const passwordHash = await bcrypt.hash('admin123', 10)
     await db.insert(usuarios).values({
       nombre: 'Administrador del Sistema',
       email: 'admin@itse.edu.mx',
@@ -174,7 +175,7 @@ export async function initDatabase() {
     console.log('👤 Usuario admin creado: admin@itse.edu.mx')
   } else {
     // Asegurar que la contraseña sea admin123 incluso si ya existe
-    const passwordHash = await Bun.password.hash('admin123')
+    const passwordHash = await bcrypt.hash('admin123', 10)
     await db.update(usuarios)
       .set({ passwordHash })
       .where(eq(usuarios.email, 'admin@itse.edu.mx'))

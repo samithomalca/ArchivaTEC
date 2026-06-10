@@ -225,19 +225,6 @@ document.getElementById('login-form').onsubmit = async e => {
     if (ex && (ex.status === 401 || ex.status === 422 || ex.status === 403)) {
       err.textContent = ex.message || 'Usuario o contraseña incorrectos'
       err.classList.remove('hidden')
-    } else if (username && password) {
-      currentUser = { nombre: capitalize(username), rol: 'Administrador', username, division: '' }
-      // Modo demo → permisos completos de administrador
-      currentPermisos = {
-        crearUsuarios: true, subirArchivos: true,
-        modificarArchivos: true, eliminarArchivos: true, verOtrasDivisiones: true,
-      }
-      currentDivision = ''
-      token = 'demo-token'
-      if (document.getElementById('remember-me').checked) {
-        localStorage.setItem('remember_user', username)
-      }
-      enterApp()
     } else {
       err.textContent = ex.message || 'Credenciales incorrectas'
       err.classList.remove('hidden')
@@ -247,10 +234,6 @@ document.getElementById('login-form').onsubmit = async e => {
     btn.querySelector('.btn-loader').classList.add('hidden')
     btn.disabled = false
   }
-}
-
-function capitalize(s) {
-  return s ? s.charAt(0).toUpperCase() + s.slice(1) : s
 }
 
 const rememberedUser = localStorage.getItem('remember_user')
