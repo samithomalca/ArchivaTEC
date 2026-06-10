@@ -1,6 +1,7 @@
 # Dependencias
 node_modules/
 bun.lockb
+bun.lock
 
 # Base de Datos (PGlite y otros locales)
 data/
