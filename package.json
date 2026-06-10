@@ -1,7 +1,6 @@
 {
     "name": "muñecas",
     "module": "index.ts",
-    "type": "module",
     "private": true,
     "scripts": {
         "dev": "bun run --watch index.ts",
@@ -21,6 +20,7 @@
         "typescript": "^5"
     },
     "dependencies": {
+        "@hono/node-server": "^2.0.4",
         "@hono/swagger-ui": "^0.6.1",
         "@hono/zod-validator": "^0.8.0",
         "@supabase/supabase-js": "^2.106.2",
