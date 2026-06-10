@@ -17,7 +17,7 @@ const EnvSchema = z.object({
   JWT_EXPIRES_IN: z.string().default('8h'),
 
   // Storage
-  STORAGE_BUCKET: z.string().default('expedientes-digitalizados'),
+  STORAGE_BUCKET: z.string().default('expedientes'),
   STORAGE_PATH: z.string().default('./storage/uploads'),
 
   // CORS
