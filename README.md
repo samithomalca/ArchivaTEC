@@ -31,7 +31,7 @@ Clona el proyecto, abre tu terminal en la carpeta raíz y ejecuta:
    ```
    *(Si estás en Mac/Linux usa: `cp .env.example .env`)*.
 
-> 💡 **Nota**: No necesitas modificar nada en el archivo `.env` para desarrollo local; ya viene configurado para funcionar de inmediato en tu máquina.
+> 💡 **Nota**: Pide las credenciales de Supabase (`SUPABASE_URL`, `SUPABASE_ANON_KEY`, `SUPABASE_SERVICE_KEY`) y el `DATABASE_URL` a un miembro del equipo por un canal seguro (no por chat público) y pégalas en tu `.env` local. Nunca las subas al repositorio.
 
 ---
 
