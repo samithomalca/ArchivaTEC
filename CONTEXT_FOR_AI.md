@@ -23,13 +23,23 @@ El backend está desarrollado sobre **Bun** y **Hono** en una arquitectura de ca
 ### Persistencia e Infraestructura (`src/infrastructure`)
    - ORM: **Drizzle ORM**
    - Driver BD: **Postgres-js** (conectando exclusivamente a Supabase PostgreSQL).
-   - Migraciones: Controladas por **Drizzle Kit** y sincronizadas con **Supabase CLI**.
+   - Migraciones: Controladas por **Drizzle Kit** (tablas de la app) y por **archivos SQL en `supabase/migrations/`** (funciones RPC, RLS, triggers de Auth — cosas propias de Supabase que Drizzle no modela).
 
 ### ⚠️ Base de Datos Única: Supabase
 El sistema depende exclusivamente de una instancia de **Supabase** para todos los entornos (desarrollo y producción). 
 1. **Configuración**: Asegúrate de tener configurado `DATABASE_URL` en tu archivo `.env` o en Vercel.
 2. **PostgreSQL Estándar**: Se usa PostgreSQL real, permitiendo el uso de extensiones nativas (como `pgcrypto` para `gen_random_uuid()`).
 3. **Idempotencia**: Los scripts de inicialización (`migrate.ts`) usan `IF NOT EXISTS` para ser ejecutados de forma segura en cada arranque.
+
+---
+
+## 🚨 Gotchas Operativos (leer antes de desplegar o tocar Supabase)
+
+Estos tres puntos causaron horas de debugging real en este proyecto — no son teóricos:
+
+1. **Vercel (plan Hobby) bloquea deployments si el autor del commit no es miembro del team de Vercel del proyecto, en repos privados.** El repo ya se hizo público para evitar esto, pero por convención del equipo **`samithomalca` sigue siendo quien mergea los PRs a `main`**. Si un deployment "no refleja" un cambio reciente, sospecha primero de esto antes de buscar bugs de código — revisa los checks del PR en GitHub.
+2. **Las migraciones de `supabase/migrations/` NO se aplican solas.** El workflow de CI que lo hacía fue eliminado. Después de mergear un PR con una migración nueva, hay que aplicarla a mano (SQL Editor del dashboard de Supabase, o vía MCP si tienes acceso al proyecto) — de lo contrario el código puede referenciar una función/columna que todavía no existe en producción.
+3. **Nunca hardcodees credenciales reales en `.env.example`.** Ya pasó una vez: una `service_role key` real quedó en ese archivo, se filtró por completo al hacer público el repo, y hubo que rotarla/deshabilitarla de emergencia en Supabase. `.env.example` solo lleva placeholders — las credenciales reales se piden a un miembro del equipo por canal seguro.
 
 ---
 

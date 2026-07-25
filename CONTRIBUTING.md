@@ -20,7 +20,13 @@ El proyecto sigue una estructura modular:
 1. **Rutas**: Define tus rutas en `src/modules/[modulo]/[modulo].routes.ts`.
 2. **Validación**: Usa `Zod` para validar la entrada de las peticiones.
 3. **Esquema**: Si necesitas cambiar la base de datos, edita `src/infrastructure/database/schema.ts` y corre `bun run db:generate`.
-4. **Migraciones**: El esquema se inicializa automáticamente al arrancar el servidor mediante scripts idempotentes. Para cambios mayores, usa `supabase db push`.
+4. **Migraciones**: para cambios de esquema propios de Supabase (funciones RPC, RLS, triggers) agrega un archivo en `supabase/migrations/`. **No hay CI que lo aplique solo** — después de mergear el PR, alguien tiene que correr el SQL manualmente en el SQL Editor del dashboard (o pedírselo a Claude si tiene acceso MCP al proyecto).
+
+## 🔀 Ramas y Pull Requests
+
+- Nunca se commitea directo a `main`. Cada cambio va en su propia rama y se sube por Pull Request.
+- Por ahora, **`samithomalca` es quien mergea los PRs** (detalle y motivo en el README principal, sección "Flujo de Trabajo en Equipo").
+- Nunca pongas credenciales reales en `.env.example` — solo placeholders. Pide las reales a un compañero por canal seguro.
 
 ## 🧪 Pruebas
 
