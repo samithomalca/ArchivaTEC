@@ -10,10 +10,11 @@ Esta carpeta contiene la configuración y las migraciones de la base de datos pa
 
 ## Flujo de actualización
 
-1. Edita o agrega una migración en `supabase/migrations/`.
+1. Edita o agrega una migración en `supabase/migrations/` (nombre `YYYYMMDDHHMMSS_descripcion.sql`, mismo estilo que las existentes).
 2. Si necesitas datos iniciales, actualiza `supabase/seed.sql`.
-3. Haz push a `main`.
-4. El workflow de GitHub Actions ejecuta `supabase db push --linked` y luego aplica `supabase/db query --linked --file supabase/seed.sql` para dejar el entorno remoto en estado consistente.
+3. Sube tu rama y abre un Pull Request (ver flujo de trabajo en el [README principal](../README.md#-flujo-de-trabajo-en-equipo)).
+
+> ⚠️ **No existe CI que aplique migraciones automáticamente** a la base remota — el workflow que hacía eso (`supabase db push --linked`) fue eliminado. Después de mergear el PR, alguien con acceso tiene que aplicar el SQL manualmente: pegándolo en el **SQL Editor** del dashboard de Supabase, o pidiéndole a Claude que lo aplique directo si tiene conexión MCP al proyecto.
 
 ## Comandos útiles
 

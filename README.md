@@ -1,6 +1,6 @@
 # 🏛️ ArchivaTEC — Guía de Inicio Rápido
 
-¡Bienvenido al repositorio de **ArchivaTEC**! Esta guía te permitirá poner a funcionar el sistema en tu máquina local en menos de 3 minutos. El sistema utiliza una base de datos local embebida, por lo que **no necesitas instalar bases de datos externas** (Postgres/MySQL) para probarlo.
+¡Bienvenido al repositorio de **ArchivaTEC**! Esta guía te permitirá poner a funcionar el sistema en tu máquina local en menos de 3 minutos. El sistema requiere una conexión a **Postgres** (vía `DATABASE_URL`) — normalmente el Supabase compartido del equipo; pide las credenciales como se indica en el Paso 2.
 
 ---
 
@@ -64,6 +64,25 @@ Al iniciar el sistema por primera vez, la base de datos se inicializa automátic
 ## 📖 Documentación de la API
 Si deseas revisar o testear los endpoints y la API de Hono de forma interactiva (Swagger UI), ingresa a:
 👉 **[http://localhost:3000/api/v1/docs](http://localhost:3000/api/v1/docs)**
+
+---
+
+## 🔄 Flujo de Trabajo en Equipo
+
+### Ramas y Pull Requests
+- Nunca se hace commit directo a `main`. Cada cambio va en su propia rama (`fix/...`, `feat/...`, `chore/...`, `docs/...`) y se sube mediante un Pull Request.
+- **Los PRs los mergea `samithomalca`.** Origen de la regla: Vercel (plan Hobby) bloquea los deployments cuando el autor del commit no es miembro del team de Vercel del proyecto, en un repositorio privado. El repo ya se hizo público (lo que en teoría permitiría que cualquier colaborador mergee sin ese bloqueo), pero por ahora mantenemos la convención por consistencia. Si el equipo decide relajarla, actualiza esta sección.
+
+### Migraciones de Supabase
+- Las migraciones SQL viven en `supabase/migrations/` (ver [supabase/README.md](supabase/README.md) para el detalle).
+- **No hay CI que las aplique automáticamente** a la base de datos remota — hay que aplicarlas a mano después de mergear el PR, vía el SQL Editor del dashboard de Supabase, o pidiéndole a Claude que las aplique directo si tiene acceso MCP al proyecto.
+
+### Credenciales
+- **Nunca** hardcodees valores reales en `.env.example` — solo placeholders. Las credenciales reales se piden a un miembro del equipo por un canal seguro (no por chat público).
+- Si una credencial llega a filtrarse, rótala/deshabilítala de inmediato en Supabase (o el servicio correspondiente) y notifica al equipo.
+
+### Mantenimiento automatizado
+- `.github/workflows/keep_alive.yml` hace ping diario a Supabase para evitar que el proyecto (plan Free) se pause por 7 días de inactividad.
 
 ---
 ¡A programar! 💻🚀
