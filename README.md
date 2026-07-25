@@ -1,6 +1,43 @@
-# 🏛️ ArchivaTEC — Guía de Inicio Rápido
+# 🏛️ ArchivaTEC
 
-¡Bienvenido al repositorio de **ArchivaTEC**! Esta guía te permitirá poner a funcionar el sistema en tu máquina local en menos de 3 minutos. El sistema requiere una conexión a **Postgres** (vía `DATABASE_URL`) — normalmente el Supabase compartido del equipo; pide las credenciales como se indica en el Paso 2.
+[![Bun](https://img.shields.io/badge/Bun-000000?style=for-the-badge&logo=bun&logoColor=white)](https://bun.sh/)
+[![Hono](https://img.shields.io/badge/Hono-E36002?style=for-the-badge&logo=hono&logoColor=white)](https://hono.dev/)
+[![TypeScript](https://img.shields.io/badge/TypeScript-3178C6?style=for-the-badge&logo=typescript&logoColor=white)](https://www.typescriptlang.org/)
+[![Drizzle](https://img.shields.io/badge/Drizzle_ORM-C5F74F?style=for-the-badge&logo=drizzle&logoColor=black)](https://orm.drizzle.team/)
+[![Supabase](https://img.shields.io/badge/Supabase-3ECF8E?style=for-the-badge&logo=supabase&logoColor=white)](https://supabase.com/)
+[![Vercel](https://img.shields.io/badge/Vercel-000000?style=for-the-badge&logo=vercel&logoColor=white)](https://vercel.com/)
+
+## ¿Qué es?
+
+**ArchivaTEC** es un sistema de gestión de archivo documental para el **Instituto Tecnológico Superior de Escárcega (ITSE)**: control de cajas físicas, expedientes (de alumnos, personal y series administrativas), digitalización de documentos a PDF, préstamos con seguimiento de devolución, y control de acceso granular por rol (Administrador / Gestor de Archivos / Usuario de Consulta — ver detalle de permisos en [CONTEXT_FOR_AI.md](CONTEXT_FOR_AI.md#-modelo-de-seguridad-y-rbac-role-based-access-control)).
+
+Es un **proyecto de equipo**, no personal — el repositorio es público, el backend corre en Vercel (`archivatec.vercel.app`) y la base de datos/storage es un proyecto de Supabase compartido. Antes de tocar nada, revisa la sección [🔄 Flujo de Trabajo en Equipo](#-flujo-de-trabajo-en-equipo) más abajo — hay reglas no obvias (quién mergea los PRs, cómo se aplican las migraciones) que rompen cosas si se ignoran.
+
+## 🏗️ Stack y Arquitectura
+
+```
+Backend:  Bun (runtime) + Hono (framework HTTP) + TypeScript estricto
+ORM:      Drizzle ORM → tablas de la app (src/infrastructure/database/schema.ts)
+BD:       PostgreSQL vía Supabase (compartida por todo el equipo, dev y prod)
+Auth:     JWT propio (bcryptjs) + Supabase Auth en paralelo (login social/externo)
+Storage:  Supabase Storage (PDFs digitalizados)
+Frontend: HTML/CSS/JS servido como estático desde public/
+Deploy:   Vercel (serverless, api/index.ts como entrypoint)
+```
+
+Estructura de carpetas principales:
+```
+├── api/                    # Entrypoint serverless para Vercel
+├── src/
+│   ├── modules/            # Lógica por dominio (auth, expedientes, digitalizacion, usuarios...)
+│   ├── infrastructure/     # Drizzle, cliente de Supabase Storage, DB
+│   └── middleware/         # Auth, logger, manejo de errores
+├── public/                 # Frontend estático (HTML/CSS/JS)
+├── supabase/migrations/    # SQL de funciones RPC, RLS, triggers de Auth
+└── .github/workflows/      # keep-alive de Supabase, etc.
+```
+
+Para el detalle de cada capa, permisos RBAC, endpoints y reglas de desarrollo frontend, consulta **[CONTEXT_FOR_AI.md](CONTEXT_FOR_AI.md)** (pensado para que cualquier IA o dev nuevo tenga contexto completo sin depender de nadie) y **[CONTRIBUTING.md](CONTRIBUTING.md)**.
 
 ---
 
