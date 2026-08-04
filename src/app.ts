@@ -22,6 +22,7 @@ import { cajaRoutes } from './modules/cajas/caja.routes'
 import { prestamoRoutes } from './modules/prestamos/prestamo.routes'
 import { digitalizacionRoutes } from './modules/digitalizacion/digitalizacion.routes'
 import { usuariosRoutes } from './modules/usuarios/usuarios.routes'
+import { actividadRoutes } from './modules/actividades/actividad.routes'
 
 const app = new Hono()
 
@@ -79,6 +80,7 @@ apiRoutes.route('/ubicaciones', ubicacionRoutes)
 apiRoutes.route('/expedientes', expedienteRoutes)
 apiRoutes.route('/prestamos', prestamoRoutes)
 apiRoutes.route('/digitalizacion', digitalizacionRoutes)
+apiRoutes.route('/actividades', actividadRoutes)
 
 // Montar en ambos para evitar 404s
 app.route('/api', apiRoutes)

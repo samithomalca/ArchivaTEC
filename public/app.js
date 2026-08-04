@@ -113,54 +113,23 @@ let navState = {
 
 const YEARS = [2016, 2017, 2018, 2019, 2020, 2021, 2022, 2023, 2024, 2025, 2026]
 
-// ─── SAMPLE DATA ───────────────────────────────────────────────
-const SAMPLE_ACTIVIDADES = [
-  {
-    archivo: 'Acta_Consejo_2024.pdf',
-    serie: 'Actas institucionales',
-    subdivision: 'Dirección Académica',
-    encargado: 'María López',
-    division: 'Subdirección de Academia',
-    fecha: '18/01/2024',
-    hora: '09:45 AM',
-  },
-  {
-    archivo: 'Inventario_Laboratorio.xlsx',
-    serie: 'Control de inventarios',
-    subdivision: 'Laboratorios',
-    encargado: 'Carlos Méndez',
-    division: 'Subdirección de Administración',
-    fecha: '02/03/2024',
-    hora: '11:20 AM',
-  },
-  {
-    archivo: 'Solicitud_Beca_Alumno.docx',
-    serie: 'Apoyos estudiantiles',
-    subdivision: 'Servicios Escolares',
-    encargado: 'Ana Pérez',
-    division: 'Subdirección de Extensión',
-    fecha: '11/02/2024',
-    hora: '08:05 AM',
-  },
-  {
-    archivo: 'Reporte_Mantenimiento.jpg',
-    serie: 'Mantenimiento preventivo',
-    subdivision: 'Recursos Materiales',
-    encargado: 'José Hernández',
-    division: 'Subdirección de Administración',
-    fecha: '09/04/2024',
-    hora: '03:30 PM',
-  },
-  {
-    archivo: 'Calendario_Actividades.pdf',
-    serie: 'Planeación operativa',
-    subdivision: 'Subdirección Administrativa',
-    encargado: 'Lucía Gómez',
-    division: 'Subdirección de Planeación',
-    fecha: '27/01/2024',
-    hora: '02:15 PM',
-  },
-]
+// ─── Resuelve código de serie ('3S.03') → nombre legible + carpeta padre ──
+// El backend solo conoce el código (numeroExpediente); el nombre humano y
+// la carpeta contenedora solo existen en el catálogo estático de arriba.
+function resolveSerieInfo(code) {
+  if (!code) return null
+  function search(nodes, parentName) {
+    for (const node of nodes) {
+      if (node.code === code) return { name: node.name, parentName: parentName || null }
+      if (node.children && node.children.length) {
+        const found = search(node.children, node.name)
+        if (found) return found
+      }
+    }
+    return null
+  }
+  return search(FUNCIONES_SUSTANTIVAS, null) || search(FUNCIONES_COMUNES, null)
+}
 
 // ─── API Helper ───────────────────────────────────────────────
 async function api(method, path, body) {
@@ -840,23 +809,20 @@ async function loadActividades() {
   const tbody = document.getElementById('tbody-actividades')
   tbody.innerHTML = '<tr><td colspan="5" class="table-empty">Cargando...</td></tr>'
 
+  // El filtro por división ya lo aplica el backend desde el usuario
+  // autenticado (JWT) — no se manda como query param porque el cliente
+  // no es una fuente confiable para eso.
   let rows = []
   try {
-    // Si el usuario NO puede ver otras divisiones, filtrar por la suya en el backend
-    const divFilter = !currentPermisos.verOtrasDivisiones && currentDivision
-      ? `&division=${encodeURIComponent(currentDivision)}`
-      : ''
-    const res = await api('GET', `/actividades?limit=50${divFilter}`)
-    rows = res.data || []
-  } catch {
-    rows = SAMPLE_ACTIVIDADES
-    // Filtro de división en modo demo/local
-    if (!currentPermisos.verOtrasDivisiones && currentDivision) {
-      rows = rows.filter(r =>
-        (r.division || '').toLowerCase() === currentDivision.toLowerCase() ||
-        (r.subdivision || '').toLowerCase().includes(currentDivision.toLowerCase())
-      )
-    }
+    const res = await api('GET', '/actividades?limit=50')
+    rows = (res.data || []).map(r => {
+      const info = resolveSerieInfo(r.serie)
+      return info ? { ...r, serie: info.name, subdivision: info.parentName || r.subdivision } : r
+    })
+  } catch (err) {
+    console.error('Error al cargar actividades:', err)
+    tbody.innerHTML = '<tr><td colspan="5" class="table-empty" style="color:var(--orange);">Error al cargar el registro de actividades. Intenta recargar la página.</td></tr>'
+    return
   }
 
   if (!rows.length) {
@@ -908,7 +874,7 @@ async function loadActividades() {
 
 // ─── DETALLE DE ACTIVIDAD (MODAL) ─────────────────────────────
 function openActividadDetail(idx) {
-  const rows = window._actividadesRows || SAMPLE_ACTIVIDADES
+  const rows = window._actividadesRows || []
   const r = rows[idx]
   if (!r) return
 
