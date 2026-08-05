@@ -3,6 +3,7 @@ import { digitalizaciones, expedientes, cajas, ubicaciones } from '../../infrast
 import { eq, and, sql } from 'drizzle-orm'
 import { HTTPException } from 'hono/http-exception'
 import type { DigitalizacionDTO, ActualizarEstadoDTO, DigitalizacionQueryDTO } from './digitalizacion.schema'
+import { deriveFileName } from '../../infrastructure/storage/supabase-storage'
 
 export class DigitalizacionService {
   async listar(query: DigitalizacionQueryDTO) {
@@ -44,11 +45,13 @@ export class DigitalizacionService {
       else return [] // No hay expediente, no hay digitalizaciones
     }
 
-    return db
+    const rows = await db
       .select()
       .from(digitalizaciones)
       .where(eq(digitalizaciones.expedienteId, realId))
       .orderBy(sql`${digitalizaciones.creadoEn} DESC`)
+
+    return rows.map((r) => ({ ...r, nombreArchivo: deriveFileName(r.urlArchivo) }))
   }
 
   async iniciar(data: DigitalizacionDTO, operadorId: string) {
