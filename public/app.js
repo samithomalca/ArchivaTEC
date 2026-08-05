@@ -671,11 +671,11 @@ async function loadDigitalizaciones(expedienteId, containerId) {
           <div class="pdf-item">
             <span class="pdf-icon">📄</span>
             <div class="pdf-info">
-              <div class="pdf-name" title="${f.urlArchivo.split('/').pop()}">${f.urlArchivo.split('/').pop()}</div>
+              <div class="pdf-name" title="${f.nombreArchivo}">${f.nombreArchivo}</div>
               <div class="pdf-meta">${new Date(f.creadoEn).toLocaleDateString()} · ${f.formatoArchivo}</div>
             </div>
             <div class="pdf-actions">
-              <button class="btn-pdf-action btn-pdf-view" onclick="openPdfModal('Documento', '${f.urlArchivo}')" title="Visualizar">👁️</button>
+              <button class="btn-pdf-action btn-pdf-view" onclick="openPdfModal('${f.nombreArchivo}', '${f.urlArchivo}')" title="Visualizar">👁️</button>
               <button class="btn-pdf-action btn-pdf-delete" onclick="deletePdf('${f.id}', () => loadDigitalizaciones('${expedienteId}', '${containerId}'))" title="Eliminar">🗑️</button>
             </div>
           </div>
@@ -857,11 +857,15 @@ async function loadActividades() {
     const fecha      = r.fecha      || r.fechaSubida    || '—'
     const hora       = r.hora       || ''
     const fechaHora  = hora ? `${fecha} — ${hora}` : fecha
+    const urlArchivo = r.urlArchivo || ''
 
     // El enlace de serie es siempre cliqueable (solo lectura del detalle)
     return `
     <tr class="actividad-row${!canModify ? ' row-readonly' : ''}" data-idx="${idx}">
-      <td>${archivo}</td>
+      <td class="archivo-cell">
+        <span class="archivo-cell-name">${archivo}</span>
+        ${urlArchivo ? `<button class="btn-pdf-action btn-pdf-view" onclick="openPdfModal('${archivo}', '${urlArchivo}')" title="Abrir archivo">👁️</button>` : ''}
+      </td>
       <td>
         <button class="serie-link" onclick="openActividadDetail(${idx})">${serie}</button>
       </td>
@@ -885,6 +889,7 @@ function openActividadDetail(idx) {
   const division   = r.division   || '—'
   const fecha      = r.fecha      || r.fechaSubida    || '—'
   const hora       = r.hora       || '—'
+  const urlArchivo = r.urlArchivo || ''
 
   // Inicial del encargado para el avatar
   const inicial = encargado.charAt(0).toUpperCase()
@@ -935,7 +940,8 @@ function openActividadDetail(idx) {
   const footerHTML = `
     <button class="btn btn-regresar" onclick="closeModal()">
       <span class="back-arrow">←</span> Regresar
-    </button>`
+    </button>
+    ${urlArchivo ? `<button class="btn btn-purple" onclick="openPdfModal('${archivo}', '${urlArchivo}')">👁️ Abrir archivo</button>` : ''}`
 
   openModal('Ficha de Registro', bodyHTML, footerHTML)
 }

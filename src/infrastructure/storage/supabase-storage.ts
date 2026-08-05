@@ -8,6 +8,15 @@ function getSupabaseClient() {
   return createClient(env.SUPABASE_URL, env.SUPABASE_SERVICE_KEY)
 }
 
+// Deriva un nombre de archivo "limpio" para mostrar en la UI a partir de la
+// URL pública de un archivo en Storage. Quita el prefijo `${Date.now()}-`
+// (13 dígitos) que digitalizacion.routes.ts antepone al subir para evitar
+// colisiones de nombre en el bucket.
+export function deriveFileName(urlArchivo: string): string {
+  const last = urlArchivo.split('/').pop() || urlArchivo
+  return last.replace(/^\d{13}-/, '')
+}
+
 export const storageService = {
   async uploadFile(bucket: string, path: string, file: ArrayBuffer, contentType: string) {
     const supabase = getSupabaseClient()
