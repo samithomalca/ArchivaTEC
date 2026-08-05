@@ -16,8 +16,8 @@ seriesDocumentalesRoutes.use('*', authMiddleware)
 
 // Igual patrón que usuarios.routes.ts (canManageUsers): permiso booleano, no
 // requireRole — requireRole solo compara jerarquía de roles fijos, no
-// permisos granulares como crearUsuarios.
-function puedeCrearSeries(user: any) {
+// permisos granulares como crearUsuarios. Gatea crear Y eliminar.
+function puedeGestionarSeries(user: any) {
   return user?.rol === 'ADMIN' || user?.permisos?.crearUsuarios === true
 }
 
@@ -31,10 +31,19 @@ seriesDocumentalesRoutes.get('/', validateQuery(SerieDocumentalQuerySchema), asy
 
 seriesDocumentalesRoutes.post('/', validateBody(SerieDocumentalSchema), async (c) => {
   const caller = c.get('user') as any
-  if (!puedeCrearSeries(caller)) {
+  if (!puedeGestionarSeries(caller)) {
     throw new HTTPException(403, { message: 'No tienes permiso para crear series documentales' })
   }
   const body = c.req.valid('json') as SerieDocumentalDTO
   const result = await serieDocumentalService.crear(body, caller?.sub)
   return c.json({ success: true, data: result }, 201)
+})
+
+seriesDocumentalesRoutes.delete('/:id', async (c) => {
+  const caller = c.get('user') as any
+  if (!puedeGestionarSeries(caller)) {
+    throw new HTTPException(403, { message: 'No tienes permiso para eliminar series documentales' })
+  }
+  const result = await serieDocumentalService.eliminar(c.req.param('id'))
+  return c.json({ success: true, data: result })
 })

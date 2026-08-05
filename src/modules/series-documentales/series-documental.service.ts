@@ -53,6 +53,32 @@ export class SerieDocumentalService {
 
     return nueva
   }
+
+  async eliminar(id: string) {
+    const [serie] = await db
+      .select()
+      .from(seriesDocumentales)
+      .where(eq(seriesDocumentales.id, id))
+      .limit(1)
+
+    if (!serie) {
+      throw new HTTPException(404, { message: `Serie documental ${id} no encontrada` })
+    }
+
+    const [{ total: hijos }] = await db
+      .select({ total: sql<number>`count(*)` })
+      .from(seriesDocumentales)
+      .where(eq(seriesDocumentales.codigoPadre, serie.codigo))
+
+    if (Number(hijos) > 0) {
+      throw new HTTPException(409, {
+        message: `No se puede eliminar "${serie.codigo}": tiene ${hijos} sub-serie(s) debajo. Elimínalas primero.`,
+      })
+    }
+
+    await db.delete(seriesDocumentales).where(eq(seriesDocumentales.id, id))
+    return { success: true }
+  }
 }
 
 export const serieDocumentalService = new SerieDocumentalService()
