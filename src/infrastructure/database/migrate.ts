@@ -149,6 +149,22 @@ export async function initDatabase() {
     )
   `))
 
+  await db.execute(sql.raw(`
+    CREATE TABLE IF NOT EXISTS series_documentales (
+      id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+      codigo VARCHAR(30) NOT NULL UNIQUE,
+      nombre VARCHAR(200) NOT NULL,
+      categoria VARCHAR(20) NOT NULL,
+      codigo_padre VARCHAR(30),
+      encargado VARCHAR(200),
+      fecha_creacion TIMESTAMP,
+      fecha_vencimiento TIMESTAMP,
+      creado_por_id UUID REFERENCES usuarios(id),
+      creado_en TIMESTAMP DEFAULT NOW() NOT NULL,
+      actualizado_en TIMESTAMP DEFAULT NOW() NOT NULL
+    )
+  `))
+
   // ─ Seguridad: bloquear acceso público vía PostgREST (anon/authenticated) ──
   // El backend usa el rol "postgres" (BYPASSRLS), así que esto no afecta
   // a la API. Sin políticas, RLS habilitado = denegado por defecto para
@@ -158,6 +174,7 @@ export async function initDatabase() {
   await tryExec(`ALTER TABLE ubicaciones ENABLE ROW LEVEL SECURITY`)
   await tryExec(`ALTER TABLE prestamos ENABLE ROW LEVEL SECURITY`)
   await tryExec(`ALTER TABLE digitalizaciones ENABLE ROW LEVEL SECURITY`)
+  await tryExec(`ALTER TABLE series_documentales ENABLE ROW LEVEL SECURITY`)
 
   console.log('✅ Esquema de base de datos listo')
 

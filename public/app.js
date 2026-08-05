@@ -113,6 +113,18 @@ let navState = {
 
 const YEARS = [2016, 2017, 2018, 2019, 2020, 2021, 2022, 2023, 2024, 2025, 2026]
 
+// ─── Búsqueda recursiva de un nodo por código en el árbol de clasificación ──
+function buscarNodoPorCodigo(nodes, code) {
+  for (const node of nodes) {
+    if (node.code === code) return node
+    if (node.children && node.children.length) {
+      const found = buscarNodoPorCodigo(node.children, code)
+      if (found) return found
+    }
+  }
+  return null
+}
+
 // ─── Resuelve código de serie ('3S.03') → nombre legible + carpeta padre ──
 // El backend solo conoce el código (numeroExpediente); el nombre humano y
 // la carpeta contenedora solo existen en el catálogo estático de arriba.
@@ -129,6 +141,43 @@ function resolveSerieInfo(code) {
     return null
   }
   return search(FUNCIONES_SUSTANTIVAS, null) || search(FUNCIONES_COMUNES, null)
+}
+
+// ─── Series documentales dinámicas (creadas desde Configuración) ──────────
+// El árbol estático (FUNCIONES_SUSTANTIVAS/FUNCIONES_COMUNES, catalog.js)
+// nunca se edita en disco. Las series creadas por un admin se guardan en el
+// backend y se fusionan aquí en memoria, mutando los arrays ya cargados —
+// openFolder/renderFolderChildren los leen por referencia, así que no hace
+// falta tocar la navegación existente.
+let _seriesDinamicasCargadas = false
+
+function mergeSerieEnArbol(serie) {
+  if (!serie || !serie.codigo) return
+  const tree = serie.categoria === 'sustantivas' ? FUNCIONES_SUSTANTIVAS : FUNCIONES_COMUNES
+  if (buscarNodoPorCodigo([...FUNCIONES_SUSTANTIVAS, ...FUNCIONES_COMUNES], serie.codigo)) return
+
+  const nuevoNodo = { code: serie.codigo, name: serie.nombre }
+  if (serie.codigoPadre) {
+    const padre = buscarNodoPorCodigo(tree, serie.codigoPadre)
+    if (padre) {
+      if (!padre.children) padre.children = []
+      padre.children.push(nuevoNodo)
+      return
+    }
+    console.warn(`Serie "${serie.codigo}": no se encontró codigoPadre "${serie.codigoPadre}" en "${serie.categoria}". Se agregó como nodo de primer nivel.`)
+  }
+  tree.push(nuevoNodo)
+}
+
+async function fetchYFusionarSeriesDinamicas() {
+  try {
+    const res = await api('GET', '/series-documentales?limit=200')
+    ;(res.data || []).forEach(mergeSerieEnArbol)
+    _seriesDinamicasCargadas = true
+  } catch (err) {
+    console.error('No se pudieron cargar las series documentales dinámicas:', err)
+    toast('No se pudieron cargar algunas series documentales guardadas', 'error')
+  }
 }
 
 // ─── API Helper ───────────────────────────────────────────────
@@ -552,8 +601,11 @@ function renderView() {
 }
 
 // ── Nivel 1: Años ────────────────────────────────────────────
-function loadRegistros() {
+async function loadRegistros() {
   resetNavState()
+  if (!_seriesDinamicasCargadas) {
+    await fetchYFusionarSeriesDinamicas()
+  }
   renderView()
 }
 
@@ -1098,11 +1150,54 @@ function openNuevoUsuarioModal() {
   }
 }
 
+// ─── Construye las <option> del selector "Carpeta padre", indentadas por
+// profundidad. Marca con ⚠ los nodos hoy terminales (sin hijos): elegirlos
+// como padre los convierte en carpeta y oculta cualquier documento ya
+// archivado ahí (ver aviso fijo en el modal).
+function construirOpcionesCarpetaPadre(nodes, depth = 0) {
+  let html = ''
+  for (const node of nodes) {
+    const esTerminal = !node.children || node.children.length === 0
+    const prefix = '    '.repeat(depth)
+    const advertencia = esTerminal ? ' ⚠ (terminal, puede tener documentos)' : ''
+    html += `<option value="${node.code}">${prefix}${node.code} — ${node.name}${advertencia}</option>`
+    if (node.children && node.children.length) html += construirOpcionesCarpetaPadre(node.children, depth + 1)
+  }
+  return html
+}
+
+function poblarSelectCarpetaPadre(categoria) {
+  const sel = document.getElementById('m-serie-padre')
+  if (!sel) return
+  const tree = categoria === 'sustantivas' ? FUNCIONES_SUSTANTIVAS : FUNCIONES_COMUNES
+  sel.innerHTML = `<option value="">— Nivel raíz (sin carpeta padre) —</option>` + construirOpcionesCarpetaPadre(tree)
+}
+
 document.getElementById('btn-config-series').onclick = () => {
   openModal('Creación de Series Documentales', `
     <div class="field-group">
+      <label>Nombre de la serie</label>
+      <input id="m-serie-nombre" placeholder="Ej. Actas de Junta Directiva" />
+    </div>
+    <div class="field-group">
       <label>Código de la serie</label>
-      <input id="m-codigo" placeholder="Ej. SD-2026-001" />
+      <input id="m-codigo" placeholder="Ej. 1S.15" />
+    </div>
+    <div class="field-group">
+      <label>Categoría</label>
+      <select id="m-serie-categoria">
+        <option value="sustantivas">Funciones Sustantivas</option>
+        <option value="comunes">Funciones Comunes</option>
+      </select>
+    </div>
+    <div class="field-group">
+      <label>Carpeta padre (opcional)</label>
+      <select id="m-serie-padre"></select>
+      <p style="color:var(--orange); font-size:12px; margin-top:6px;">
+        ⚠ Si eliges una carpeta ya marcada como terminal (con documentos digitalizados),
+        esos documentos no se borran, pero dejarán de verse en Registros porque esa carpeta
+        pasará a mostrar subcarpetas en lugar de sus documentos.
+      </p>
     </div>
     <div class="field-group">
       <label>Encargado de la subdivisión</label>
@@ -1118,19 +1213,48 @@ document.getElementById('btn-config-series').onclick = () => {
     </div>`,
     `<button class="btn btn-ghost" onclick="closeModal()">Cancelar</button>
      <button class="btn btn-purple" id="btn-save-serie">Crear Serie</button>`)
+
+  poblarSelectCarpetaPadre('sustantivas')
+  document.getElementById('m-serie-categoria').onchange = e => poblarSelectCarpetaPadre(e.target.value)
+
   document.getElementById('btn-save-serie').onclick = async () => {
-    const codigo = document.getElementById('m-codigo').value
+    const nombre = document.getElementById('m-serie-nombre').value.trim()
+    const codigo = document.getElementById('m-codigo').value.trim()
+    const categoria = document.getElementById('m-serie-categoria').value
+    const codigoPadre = document.getElementById('m-serie-padre').value || null
+
+    if (!nombre) { toast('Ingresa el nombre de la serie', 'error'); return }
     if (!codigo) { toast('Ingresa el código de la serie', 'error'); return }
+
+    // Validación best-effort en cliente contra TODO el árbol ya fusionado
+    // (estático + dinámico). El backend solo puede garantizar unicidad
+    // contra series dinámicas — el catálogo estático de ~150 nodos solo
+    // existe en este archivo (catalog.js).
+    const choque = buscarNodoPorCodigo([...FUNCIONES_SUSTANTIVAS, ...FUNCIONES_COMUNES], codigo)
+    if (choque) { toast(`El código "${codigo}" ya está en uso por "${choque.name}"`, 'error'); return }
+
     try {
-      await api('POST', '/series-documentales', {
+      const res = await api('POST', '/series-documentales', {
+        nombre,
         codigo,
-        encargado: document.getElementById('m-enc-serie').value,
-        fechaCreacion: document.getElementById('m-fcreacion').value,
-        fechaVencimiento: document.getElementById('m-fvencimiento').value,
+        categoria,
+        codigoPadre,
+        encargado: document.getElementById('m-enc-serie').value || undefined,
+        fechaCreacion: document.getElementById('m-fcreacion').value || undefined,
+        fechaVencimiento: document.getElementById('m-fvencimiento').value || undefined,
       })
-      closeModal(); toast('Serie documental creada', 'success')
-    } catch {
-      closeModal(); toast('Serie guardada (modo demo)', 'success')
+      mergeSerieEnArbol(res.data)
+      closeModal()
+      toast('Serie documental creada', 'success')
+      if (navState.year) renderView()
+    } catch (err) {
+      console.error(err)
+      if (err && err.status === 403) {
+        toast('No tienes permiso para crear series documentales', 'error')
+        closeModal()
+        return
+      }
+      toast(err?.message || 'No se pudo guardar la serie documental en el servidor', 'error')
     }
   }
 }
