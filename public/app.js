@@ -180,6 +180,21 @@ async function fetchYFusionarSeriesDinamicas() {
   }
 }
 
+// Quita un nodo del árbol en memoria (raíz o dentro de children de cualquier
+// padre). El backend ya bloquea el borrado de series con hijos, así que aquí
+// nunca hay que preocuparse por sub-árboles huérfanos.
+function removeNodoDelArbol(codigo) {
+  function quitarDe(nodes) {
+    const idx = nodes.findIndex(n => n.code === codigo)
+    if (idx !== -1) { nodes.splice(idx, 1); return true }
+    for (const node of nodes) {
+      if (node.children && node.children.length && quitarDe(node.children)) return true
+    }
+    return false
+  }
+  quitarDe(FUNCIONES_SUSTANTIVAS) || quitarDe(FUNCIONES_COMUNES)
+}
+
 // ─── API Helper ───────────────────────────────────────────────
 async function api(method, path, body) {
   const opts = { method, headers: { 'Content-Type': 'application/json' } }
@@ -999,7 +1014,7 @@ function openActividadDetail(idx) {
 }
 
 // ─── CONFIGURACIÓN ────────────────────────────────────────────
-function loadConfiguracion() {}
+function loadConfiguracion() { loadSeriesAdmin() }
 
 // ─── MAPEO DE PERMISOS POR ROL ────────────────────────────────
 // Define los permisos predeterminados que activa cada rol del selector.
@@ -1247,6 +1262,7 @@ document.getElementById('btn-config-series').onclick = () => {
       closeModal()
       toast('Serie documental creada', 'success')
       if (navState.year) renderView()
+      loadSeriesAdmin()
     } catch (err) {
       console.error(err)
       if (err && err.status === 403) {
@@ -1255,6 +1271,92 @@ document.getElementById('btn-config-series').onclick = () => {
         return
       }
       toast(err?.message || 'No se pudo guardar la serie documental en el servidor', 'error')
+    }
+  }
+}
+
+// ─── Administración de Series Documentales (listar + eliminar) ────────────
+let _seriesAdminCache = []
+
+async function loadSeriesAdmin() {
+  const tbody = document.getElementById('tbody-series-admin')
+  if (!tbody) return
+  tbody.innerHTML = '<tr><td colspan="6" class="table-empty">⏳ Cargando series documentales...</td></tr>'
+
+  try {
+    const res = await api('GET', '/series-documentales?limit=200')
+    _seriesAdminCache = res.data || []
+    renderSeriesAdminTable()
+  } catch (err) {
+    if (err && (err.status === 403 || err.status === 401)) {
+      tbody.innerHTML = '<tr><td colspan="6" class="table-empty">No tienes permiso para ver esta lista</td></tr>'
+    } else {
+      tbody.innerHTML = '<tr><td colspan="6" class="table-empty">No se pudo cargar la lista de series</td></tr>'
+    }
+  }
+}
+
+function renderSeriesAdminTable() {
+  const tbody = document.getElementById('tbody-series-admin')
+  if (!tbody) return
+
+  if (!_seriesAdminCache.length) {
+    tbody.innerHTML = '<tr><td colspan="6" class="table-empty">Sin series documentales creadas todavía</td></tr>'
+    return
+  }
+
+  tbody.innerHTML = _seriesAdminCache.map((s, idx) => {
+    const padre = s.codigoPadre
+      ? (buscarNodoPorCodigo([...FUNCIONES_SUSTANTIVAS, ...FUNCIONES_COMUNES], s.codigoPadre)?.name || s.codigoPadre)
+      : '— Nivel raíz —'
+    const categoriaLabel = s.categoria === 'sustantivas' ? 'Sustantivas' : 'Comunes'
+    return `
+    <tr data-idx="${idx}">
+      <td style="font-weight:600;">${s.codigo}</td>
+      <td>${s.nombre}</td>
+      <td>${categoriaLabel}</td>
+      <td style="font-size:12px;color:var(--gray-600);">${padre}</td>
+      <td style="font-size:12px;color:var(--gray-600);">${s.encargado || '—'}</td>
+      <td>
+        <div class="action-btns">
+          <button class="btn-action-delete" title="Eliminar serie ${s.codigo}" onclick="confirmDeleteSerie(${idx})">🗑️</button>
+        </div>
+      </td>
+    </tr>`
+  }).join('')
+}
+
+function confirmDeleteSerie(idx) {
+  const s = _seriesAdminCache[idx]
+  if (!s) return
+
+  openModal('Confirmar Eliminación', `
+    <div class="confirm-modal-body">
+      <div class="confirm-modal-icon">⚠️</div>
+      <div class="confirm-modal-title">Eliminar serie documental</div>
+      <p class="confirm-modal-text">
+        Esta acción es <strong>irreversible</strong>. Si esta serie tiene sub-series debajo,
+        el servidor rechazará la eliminación hasta que las borres primero.
+      </p>
+      <div class="confirm-modal-user-badge">📁 ${s.codigo} — ${s.nombre}</div>
+    </div>`,
+    `<button class="btn btn-ghost" onclick="closeModal()">Cancelar</button>
+     <button class="btn btn-orange" id="btn-confirm-delete">🗑️ Eliminar definitivamente</button>`)
+
+  document.getElementById('btn-confirm-delete').onclick = async () => {
+    try {
+      await api('DELETE', `/series-documentales/${s.id}`)
+      _seriesAdminCache.splice(idx, 1)
+      removeNodoDelArbol(s.codigo)
+      renderSeriesAdminTable()
+      closeModal()
+      toast('Serie documental eliminada', 'success')
+      if (navState.year) renderView()
+    } catch (err) {
+      closeModal()
+      if (err && err.status === 409) { toast(err.message, 'error'); return }
+      if (err && err.status === 403) { toast('No tienes permiso para eliminar series documentales', 'error'); return }
+      toast(err?.message || 'No se pudo eliminar la serie documental', 'error')
     }
   }
 }
