@@ -134,6 +134,28 @@ export const digitalizaciones = pgTable('digitalizaciones', {
   actualizadoEn: timestamp('actualizado_en').defaultNow().notNull(),
 })
 
+// ─── Series Documentales (nodos dinámicos del árbol de clasificación) ─────
+// El árbol estático (~150 nodos, public/catalog.js) NO vive en esta base de
+// datos. Esta tabla solo guarda nodos creados dinámicamente desde
+// Configuración > "Creación de Series Documentales". codigoPadre puede
+// apuntar a un código del árbol estático (que este backend no valida) o a
+// otro registro dinámico — limitación conocida, ver series-documental.service.ts.
+type CategoriaSerieEnum = 'sustantivas' | 'comunes'  // mismos valores que navState.category en app.js
+
+export const seriesDocumentales = pgTable('series_documentales', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  codigo: varchar('codigo', { length: 30 }).notNull(),
+  nombre: varchar('nombre', { length: 200 }).notNull(),
+  categoria: varchar('categoria', { length: 20 }).$type<CategoriaSerieEnum>().notNull(),
+  codigoPadre: varchar('codigo_padre', { length: 30 }),
+  encargado: varchar('encargado', { length: 200 }),
+  fechaCreacion: timestamp('fecha_creacion'),
+  fechaVencimiento: timestamp('fecha_vencimiento'),
+  creadoPorId: uuid('creado_por_id').references(() => usuarios.id),
+  creadoEn: timestamp('creado_en').defaultNow().notNull(),
+  actualizadoEn: timestamp('actualizado_en').defaultNow().notNull(),
+}, (t) => [uniqueIndex('series_documentales_codigo_unique').on(t.codigo)])
+
 // ─── Relaciones ───────────────────────────────────────────────────
 
 export const ubicacionesRelations = relations(ubicaciones, ({ many }) => ({
@@ -161,4 +183,8 @@ export const prestamosRelations = relations(prestamos, ({ one }) => ({
 export const digitalizacionesRelations = relations(digitalizaciones, ({ one }) => ({
   expediente: one(expedientes, { fields: [digitalizaciones.expedienteId], references: [expedientes.id] }),
   operador: one(usuarios, { fields: [digitalizaciones.operadorId], references: [usuarios.id] }),
+}))
+
+export const seriesDocumentalesRelations = relations(seriesDocumentales, ({ one }) => ({
+  creadoPor: one(usuarios, { fields: [seriesDocumentales.creadoPorId], references: [usuarios.id] }),
 }))
