@@ -1,11 +1,14 @@
 import { createMiddleware } from 'hono/factory'
 import { HTTPException } from 'hono/http-exception'
 import { env } from '../config/env'
+import type { Permisos } from '../modules/auth/auth.service'
 
 export interface JwtPayload {
   sub: string
   email: string
   rol: string
+  division?: string
+  permisos?: Permisos
   iat: number
   exp: number
 }
@@ -42,10 +45,15 @@ async function verifyJwt(token: string, secret: string): Promise<JwtPayload> {
   const valid = await crypto.subtle.verify('HMAC', key, signature, data)
   if (!valid) throw new Error('Firma JWT inválida')
 
-  // Decodificar payload
-  const payload = JSON.parse(
+  // Decodificar payload — atob() da una "binary string" (1 char = 1 byte),
+  // no texto UTF-8; hay que reinterpretar esos bytes como UTF-8 antes del
+  // JSON.parse o los caracteres acentuados quedan corruptos (ej. "división"
+  // se decodifica mal si se usa atob() directo sobre JSON con texto en español).
+  const payloadBytes = Uint8Array.from(
     atob(payloadB64.replace(/-/g, '+').replace(/_/g, '/')),
-  ) as JwtPayload
+    (c) => c.charCodeAt(0),
+  )
+  const payload = JSON.parse(new TextDecoder('utf-8').decode(payloadBytes)) as JwtPayload
 
   // Verificar expiración
   if (payload.exp && payload.exp < Math.floor(Date.now() / 1000)) {
