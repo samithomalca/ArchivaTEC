@@ -195,6 +195,67 @@ function removeNodoDelArbol(codigo) {
   quitarDe(FUNCIONES_SUSTANTIVAS) || quitarDe(FUNCIONES_COMUNES)
 }
 
+// Actualiza el nombre visible de un nodo ya fusionado en el árbol (usado al
+// editar una serie) — mismo patrón de búsqueda recursiva que removeNodoDelArbol.
+function actualizarNombreNodoEnArbol(codigo, nuevoNombre) {
+  function buscarYActualizar(nodes) {
+    for (const node of nodes) {
+      if (node.code === codigo) { node.name = nuevoNombre; return true }
+      if (node.children && node.children.length && buscarYActualizar(node.children)) return true
+    }
+    return false
+  }
+  buscarYActualizar(FUNCIONES_SUSTANTIVAS) || buscarYActualizar(FUNCIONES_COMUNES)
+}
+
+// Devuelve la ruta completa desde la raíz hasta el nodo buscado (inclusive),
+// en el mismo formato que usa navState.path. A diferencia de
+// buscarNodoPorCodigo (que solo devuelve el nodo), esta arma toda la cadena
+// de ancestros recorriendo el árbol ya fusionado — funciona igual para
+// nodos del catálogo estático que para series dinámicas, sin depender de
+// encadenar codigoPadre manualmente (los nodos estáticos no lo tienen).
+function buscarRutaHastaNodo(nodes, targetCode, ruta = []) {
+  for (const node of nodes) {
+    const nuevaRuta = [...ruta, node]
+    if (node.code === targetCode) return nuevaRuta
+    if (node.children && node.children.length) {
+      const encontrada = buscarRutaHastaNodo(node.children, targetCode, nuevaRuta)
+      if (encontrada) return encontrada
+    }
+  }
+  return null
+}
+
+// Navega directo a la carpeta de Registros donde vive una serie, sin pasar
+// por navigateTo('registros')/loadRegistros() (ambas resetean navState).
+// Año y Subdirección son solo pasos de navegación que no filtran contenido
+// real (el árbol es el mismo sin importar cuál se elija), así que se fija
+// cualquier valor válido.
+async function irASerieEnRegistros(id) {
+  const serie = _seriesAdminCache.find(x => x.id === id)
+  if (!serie) return
+
+  if (!_seriesDinamicasCargadas) await fetchYFusionarSeriesDinamicas()
+
+  const tree = serie.categoria === 'sustantivas' ? FUNCIONES_SUSTANTIVAS : FUNCIONES_COMUNES
+  const ruta = buscarRutaHastaNodo(tree, serie.codigo)
+  if (!ruta) { toast('No se encontró la ubicación de esta serie en Registros', 'error'); return }
+
+  document.querySelectorAll('.nav-item').forEach(item => {
+    item.classList.toggle('active', item.dataset.view === 'registros')
+  })
+  document.querySelectorAll('.view').forEach(v => v.classList.add('hidden'))
+  document.getElementById('view-registros')?.classList.remove('hidden')
+
+  navState = {
+    year: YEARS[YEARS.length - 1],
+    subdir: SUBDIRECCIONES[0],
+    category: serie.categoria,
+    path: ruta,
+  }
+  renderView()
+}
+
 // ─── API Helper ───────────────────────────────────────────────
 async function api(method, path, body) {
   const opts = { method, headers: { 'Content-Type': 'application/json' } }
@@ -1385,6 +1446,8 @@ function renderSeriesAdminTable() {
       <td style="font-size:12px;color:var(--gray-600);">${encargadoLabel}</td>
       <td>
         <div class="action-btns">
+          <button class="btn-action-edit" title="Editar serie ${s.codigo}" onclick="abrirEditarSerie('${s.id}')">✏️</button>
+          <button class="btn-action-goto" title="Ir a la ubicación de ${s.codigo}" onclick="irASerieEnRegistros('${s.id}')">📂</button>
           <button class="btn-action-delete" title="Eliminar serie ${s.codigo}" onclick="confirmDeleteSerie('${s.id}')">🗑️</button>
         </div>
       </td>
@@ -1403,6 +1466,82 @@ function renderSeriesAdminTable() {
   }
 
   tbody.innerHTML = filasHTML + toggleHTML
+}
+
+function fmtDateInput(iso) {
+  if (!iso) return ''
+  return String(iso).slice(0, 10)
+}
+
+function abrirEditarSerie(id) {
+  const s = _seriesAdminCache.find(x => x.id === id)
+  if (!s) return
+
+  const padre = s.codigoPadre
+    ? (buscarNodoPorCodigo([...FUNCIONES_SUSTANTIVAS, ...FUNCIONES_COMUNES], s.codigoPadre)?.name || s.codigoPadre)
+    : '— Nivel raíz —'
+  const categoriaLabel = s.categoria === 'sustantivas' ? 'Sustantivas' : 'Comunes'
+
+  openModal('Editar Serie Documental', `
+    <div class="field-group">
+      <label>Código (fijo)</label>
+      <p style="margin:0; padding:8px 0; font-weight:600;">${s.codigo}</p>
+    </div>
+    <div class="field-group">
+      <label>Categoría (fija)</label>
+      <p style="margin:0; padding:8px 0;">${categoriaLabel}</p>
+    </div>
+    <div class="field-group">
+      <label>Carpeta padre (fija)</label>
+      <p style="margin:0; padding:8px 0;">${padre}</p>
+    </div>
+    <div class="field-group">
+      <label>Nombre de la serie</label>
+      <input id="em-serie-nombre" value="${s.nombre}" />
+    </div>
+    <div class="field-group">
+      <label>Encargado de la subdivisión</label>
+      <select id="em-serie-encargado"><option value="">Cargando usuarios...</option></select>
+    </div>
+    <div class="field-group">
+      <label>Fecha de creación</label>
+      <input type="date" id="em-fcreacion" value="${fmtDateInput(s.fechaCreacion)}" />
+    </div>
+    <div class="field-group">
+      <label>Fecha de vencimiento</label>
+      <input type="date" id="em-fvencimiento" value="${fmtDateInput(s.fechaVencimiento)}" />
+    </div>`,
+    `<button class="btn btn-ghost" onclick="closeModal()">Cancelar</button>
+     <button class="btn btn-purple" id="btn-save-edit-serie">Guardar Cambios</button>`)
+
+  poblarSelectEncargadoSerie().then(() => {
+    const sel = document.getElementById('em-serie-encargado')
+    if (sel) sel.value = s.encargadoId || ''
+  })
+
+  document.getElementById('btn-save-edit-serie').onclick = async () => {
+    const nombre = document.getElementById('em-serie-nombre').value.trim()
+    if (!nombre) { toast('Ingresa el nombre de la serie', 'error'); return }
+
+    try {
+      const res = await api('PATCH', `/series-documentales/${id}`, {
+        nombre,
+        encargadoId: document.getElementById('em-serie-encargado').value || undefined,
+        fechaCreacion: document.getElementById('em-fcreacion').value || undefined,
+        fechaVencimiento: document.getElementById('em-fvencimiento').value || undefined,
+      })
+      Object.assign(s, res.data)
+      actualizarNombreNodoEnArbol(s.codigo, res.data.nombre)
+      renderSeriesAdminTable()
+      closeModal()
+      toast('Serie documental actualizada', 'success')
+      if (navState.year) renderView()
+    } catch (err) {
+      closeModal()
+      if (err && err.status === 403) { toast('No tienes permiso para editar series documentales', 'error'); return }
+      toast(err?.message || 'No se pudo actualizar la serie documental', 'error')
+    }
+  }
 }
 
 function confirmDeleteSerie(id) {

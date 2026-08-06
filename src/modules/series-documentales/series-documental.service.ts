@@ -2,7 +2,7 @@ import { db } from '../../infrastructure/database/client'
 import { seriesDocumentales, usuarios } from '../../infrastructure/database/schema'
 import { eq, and, sql, desc } from 'drizzle-orm'
 import { HTTPException } from 'hono/http-exception'
-import type { SerieDocumentalDTO, SerieDocumentalQueryDTO } from './series-documental.schema'
+import type { SerieDocumentalDTO, SerieDocumentalQueryDTO, SerieDocumentalUpdateDTO } from './series-documental.schema'
 
 export class SerieDocumentalService {
   async listar(query: SerieDocumentalQueryDTO) {
@@ -97,6 +97,28 @@ export class SerieDocumentalService {
 
     await db.delete(seriesDocumentales).where(eq(seriesDocumentales.id, id))
     return { success: true }
+  }
+
+  // Solo metadata (nombre, encargado, fechas) — codigo/categoria/codigoPadre
+  // no forman parte de SerieDocumentalUpdateDTO, así que no pueden llegar aquí.
+  async actualizar(id: string, data: SerieDocumentalUpdateDTO) {
+    const [existing] = await db
+      .select({ id: seriesDocumentales.id })
+      .from(seriesDocumentales)
+      .where(eq(seriesDocumentales.id, id))
+      .limit(1)
+
+    if (!existing) {
+      throw new HTTPException(404, { message: `Serie documental ${id} no encontrada` })
+    }
+
+    const [actualizada] = await db
+      .update(seriesDocumentales)
+      .set({ ...data, actualizadoEn: new Date() })
+      .where(eq(seriesDocumentales.id, id))
+      .returning()
+
+    return actualizada
   }
 }
 

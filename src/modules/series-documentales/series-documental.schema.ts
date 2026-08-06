@@ -26,5 +26,15 @@ export const SerieDocumentalQuerySchema = z.object({
   limit: z.coerce.number().int().positive().max(200).default(100),
 })
 
+// Solo campos de metadata — código, categoría y carpeta padre son fijos al
+// crear (cambiarlos movería el nodo dentro del árbol de Registros).
+export const SerieDocumentalUpdateSchema = z.object({
+  nombre: z.string().min(1).max(200).optional(),
+  encargadoId: z.string().regex(/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i, 'ID de usuario inválido').optional().nullable(),
+  fechaCreacion: z.coerce.date().optional(),
+  fechaVencimiento: z.coerce.date().optional(),
+})
+
 export type SerieDocumentalDTO = z.infer<typeof SerieDocumentalSchema>
 export type SerieDocumentalQueryDTO = z.infer<typeof SerieDocumentalQuerySchema>
+export type SerieDocumentalUpdateDTO = z.infer<typeof SerieDocumentalUpdateSchema>
