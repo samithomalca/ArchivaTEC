@@ -231,6 +231,27 @@ function buscarRutaHastaNodo(nodes, targetCode, ruta = []) {
 // Año y Subdirección son solo pasos de navegación que no filtran contenido
 // real (el árbol es el mismo sin importar cuál se elija), así que se fija
 // cualquier valor válido.
+// Cambia a la vista Registros y aterriza en la carpeta dada, sin pasar por
+// navigateTo('registros')/loadRegistros() (ambas resetean navState). Año y
+// Subdirección son solo pasos de navegación que no filtran contenido real,
+// así que se fija cualquier valor válido. Compartido por el botón "ir a
+// ubicación" de Series Documentales y de Registro de Actividades.
+function irACarpetaRegistros(categoria, ruta) {
+  document.querySelectorAll('.nav-item').forEach(item => {
+    item.classList.toggle('active', item.dataset.view === 'registros')
+  })
+  document.querySelectorAll('.view').forEach(v => v.classList.add('hidden'))
+  document.getElementById('view-registros')?.classList.remove('hidden')
+
+  navState = {
+    year: YEARS[YEARS.length - 1],
+    subdir: SUBDIRECCIONES[0],
+    category: categoria,
+    path: ruta,
+  }
+  renderView()
+}
+
 async function irASerieEnRegistros(id) {
   const serie = _seriesAdminCache.find(x => x.id === id)
   if (!serie) return
@@ -241,19 +262,26 @@ async function irASerieEnRegistros(id) {
   const ruta = buscarRutaHastaNodo(tree, serie.codigo)
   if (!ruta) { toast('No se encontró la ubicación de esta serie en Registros', 'error'); return }
 
-  document.querySelectorAll('.nav-item').forEach(item => {
-    item.classList.toggle('active', item.dataset.view === 'registros')
-  })
-  document.querySelectorAll('.view').forEach(v => v.classList.add('hidden'))
-  document.getElementById('view-registros')?.classList.remove('hidden')
+  irACarpetaRegistros(serie.categoria, ruta)
+}
 
-  navState = {
-    year: YEARS[YEARS.length - 1],
-    subdir: SUBDIRECCIONES[0],
-    category: serie.categoria,
-    path: ruta,
+// El registro de actividades no trae la categoría (sustantivas/comunes) del
+// archivo, así que se prueba primero en un árbol y, si no aparece, en el otro.
+async function irAUbicacionActividad(idx) {
+  const r = (window._actividadesRows || [])[idx]
+  if (!r || !r.serieCodigo) { toast('No se pudo determinar la ubicación de este archivo', 'error'); return }
+
+  if (!_seriesDinamicasCargadas) await fetchYFusionarSeriesDinamicas()
+
+  let categoria = 'sustantivas'
+  let ruta = buscarRutaHastaNodo(FUNCIONES_SUSTANTIVAS, r.serieCodigo)
+  if (!ruta) {
+    categoria = 'comunes'
+    ruta = buscarRutaHastaNodo(FUNCIONES_COMUNES, r.serieCodigo)
   }
-  renderView()
+  if (!ruta) { toast('No se encontró la ubicación de este archivo en Registros', 'error'); return }
+
+  irACarpetaRegistros(categoria, ruta)
 }
 
 // ─── API Helper ───────────────────────────────────────────────
@@ -935,7 +963,7 @@ function borrarRegistro() {
 // ─── REGISTRO DE ACTIVIDADES ──────────────────────────────────
 async function loadActividades() {
   const tbody = document.getElementById('tbody-actividades')
-  tbody.innerHTML = '<tr><td colspan="5" class="table-empty">Cargando...</td></tr>'
+  tbody.innerHTML = '<tr><td colspan="6" class="table-empty">Cargando...</td></tr>'
 
   // El filtro por división ya lo aplica el backend desde el usuario
   // autenticado (JWT) — no se manda como query param porque el cliente
@@ -944,17 +972,20 @@ async function loadActividades() {
   try {
     const res = await api('GET', '/actividades?limit=50')
     rows = (res.data || []).map(r => {
+      const serieCodigo = r.serie
       const info = resolveSerieInfo(r.serie)
-      return info ? { ...r, serie: info.name, subdivision: info.parentName || r.subdivision } : r
+      return info
+        ? { ...r, serie: info.name, serieCodigo, subdivision: info.parentName || r.subdivision }
+        : { ...r, serieCodigo }
     })
   } catch (err) {
     console.error('Error al cargar actividades:', err)
-    tbody.innerHTML = '<tr><td colspan="5" class="table-empty" style="color:var(--orange);">Error al cargar el registro de actividades. Intenta recargar la página.</td></tr>'
+    tbody.innerHTML = '<tr><td colspan="6" class="table-empty" style="color:var(--orange);">Error al cargar el registro de actividades. Intenta recargar la página.</td></tr>'
     return
   }
 
   if (!rows.length) {
-    tbody.innerHTML = '<tr><td colspan="5" class="table-empty">Sin registros de actividad</td></tr>'
+    tbody.innerHTML = '<tr><td colspan="6" class="table-empty">Sin registros de actividad</td></tr>'
     return
   }
 
@@ -992,7 +1023,6 @@ async function loadActividades() {
     <tr class="actividad-row${!canModify ? ' row-readonly' : ''}" data-idx="${idx}">
       <td class="archivo-cell">
         <span class="archivo-cell-name">${archivo}</span>
-        ${urlArchivo ? `<button class="btn-pdf-action btn-pdf-view" onclick="openPdfModal('${archivo}', '${urlArchivo}')" title="Abrir archivo">👁️</button>` : ''}
       </td>
       <td>
         <button class="serie-link" onclick="openActividadDetail(${idx})">${serie}</button>
@@ -1000,6 +1030,12 @@ async function loadActividades() {
       <td>${subdivision}</td>
       <td>${encargado}</td>
       <td class="fecha-col">${fechaHora}</td>
+      <td>
+        <div class="action-btns">
+          ${urlArchivo ? `<button class="btn-pdf-action btn-pdf-view" onclick="openPdfModal('${archivo}', '${urlArchivo}')" title="Visualizar">👁️</button>` : ''}
+          <button class="btn-action-goto" title="Ir a la ubicación del archivo" onclick="irAUbicacionActividad(${idx})">📂</button>
+        </div>
+      </td>
     </tr>`
   }).join('')
 }
