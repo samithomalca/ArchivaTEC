@@ -148,7 +148,7 @@ export const seriesDocumentales = pgTable('series_documentales', {
   nombre: varchar('nombre', { length: 200 }).notNull(),
   categoria: varchar('categoria', { length: 20 }).$type<CategoriaSerieEnum>().notNull(),
   codigoPadre: varchar('codigo_padre', { length: 30 }),
-  encargado: varchar('encargado', { length: 200 }),
+  encargadoId: uuid('encargado_id').references(() => usuarios.id),
   fechaCreacion: timestamp('fecha_creacion'),
   fechaVencimiento: timestamp('fecha_vencimiento'),
   creadoPorId: uuid('creado_por_id').references(() => usuarios.id),
@@ -187,4 +187,5 @@ export const digitalizacionesRelations = relations(digitalizaciones, ({ one }) =
 
 export const seriesDocumentalesRelations = relations(seriesDocumentales, ({ one }) => ({
   creadoPor: one(usuarios, { fields: [seriesDocumentales.creadoPorId], references: [usuarios.id] }),
+  encargado: one(usuarios, { fields: [seriesDocumentales.encargadoId], references: [usuarios.id] }),
 }))
