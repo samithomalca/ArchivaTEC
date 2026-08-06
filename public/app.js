@@ -1286,9 +1286,9 @@ document.getElementById('btn-config-series').onclick = () => {
       <label>Carpeta padre (opcional)</label>
       <select id="m-serie-padre"></select>
       <p style="color:var(--orange); font-size:12px; margin-top:6px;">
-        ⚠ Si eliges una carpeta ya marcada como terminal (con documentos digitalizados),
-        esos documentos no se borran, pero dejarán de verse en Registros porque esa carpeta
-        pasará a mostrar subcarpetas en lugar de sus documentos.
+        ⚠ Si la carpeta que elijas como padre ya tiene documentos digitalizados, esos
+        documentos no se borran, pero dejarán de verse en Registros porque esa carpeta pasará
+        a mostrar subcarpetas en lugar de sus documentos.
       </p>
     </div>
     <div class="field-group">
@@ -1553,12 +1553,15 @@ function abrirEditarSerie(id) {
         fechaCreacion: document.getElementById('em-fcreacion').value || undefined,
         fechaVencimiento: document.getElementById('em-fvencimiento').value || undefined,
       })
-      Object.assign(s, res.data)
       actualizarNombreNodoEnArbol(s.codigo, res.data.nombre)
-      renderSeriesAdminTable()
       closeModal()
       toast('Serie documental actualizada', 'success')
       if (navState.year) renderView()
+      // Recarga desde el servidor en vez de mutar s en memoria: el PATCH
+      // solo devuelve encargadoId (columna cruda), no encargadoNombre/Rol
+      // resueltos por el join — sin este refetch, el nombre del encargado
+      // se quedaba desactualizado en la tabla hasta recargar la página.
+      await loadSeriesAdmin()
     } catch (err) {
       closeModal()
       if (err && err.status === 403) { toast('No tienes permiso para editar series documentales', 'error'); return }
