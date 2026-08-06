@@ -290,8 +290,26 @@
               <h3 class="section-title" style="margin-bottom:4px;">📁 Series Documentales Creadas</h3>
               <p class="section-sub">Series dadas de alta desde este panel — no incluye el catálogo oficial</p>
             </div>
-            <div class="field-group" style="max-width:360px; margin-bottom:14px;">
-              <input id="buscar-series-admin" placeholder="🔎 Buscar por código, nombre o encargado..." />
+            <div class="series-admin-filtros">
+              <div class="field-group series-admin-filtro-texto">
+                <input id="buscar-series-admin" placeholder="🔎 Buscar por código, nombre o encargado..." />
+              </div>
+              <div class="field-group series-admin-filtro-categoria">
+                <select id="filtro-categoria-series">
+                  <option value="">Todas las categorías</option>
+                  <option value="sustantivas">Sustantivas</option>
+                  <option value="comunes">Comunes</option>
+                </select>
+              </div>
+              <div class="field-group series-admin-filtro-mostrar">
+                <label for="mostrar-series-admin" style="margin-right:6px;">Mostrar</label>
+                <select id="mostrar-series-admin">
+                  <option value="8">8</option>
+                  <option value="25">25</option>
+                  <option value="50">50</option>
+                  <option value="100">100</option>
+                </select>
+              </div>
             </div>
             <div class="table-wrapper">
               <table class="data-table" id="table-series-admin">
@@ -310,6 +328,7 @@
                 </tbody>
               </table>
             </div>
+            <div id="paginacion-series-admin" class="series-admin-paginacion"></div>
           </div>
         </div>
 

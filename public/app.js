@@ -1250,8 +1250,8 @@ function poblarSelectCarpetaPadre(categoria) {
 // ─── Puebla el selector de "Encargado" del modal de creación de series con
 // la lista real de usuarios del sistema (mismo endpoint que Administración
 // de Usuarios, mismo permiso que ya protege crear series).
-async function poblarSelectEncargadoSerie() {
-  const sel = document.getElementById('m-serie-encargado')
+async function poblarSelectEncargadoSerie(selectId = 'm-serie-encargado') {
+  const sel = document.getElementById(selectId)
   if (!sel) return
   sel.innerHTML = `<option value="">Cargando usuarios...</option>`
   try {
@@ -1374,8 +1374,9 @@ document.getElementById('btn-config-series').onclick = () => {
 // ─── Administración de Series Documentales (listar + eliminar) ────────────
 let _seriesAdminCache = []
 let _seriesAdminFiltro = ''
-let _seriesAdminExpandido = false
-const SERIES_ADMIN_LIMITE_INICIAL = 8
+let _seriesAdminFiltroCategoria = ''
+let _seriesAdminPagina = 1
+let _seriesAdminPorPagina = 8
 
 async function loadSeriesAdmin() {
   const tbody = document.getElementById('tbody-series-admin')
@@ -1395,43 +1396,62 @@ async function loadSeriesAdmin() {
   }
 }
 
-function filtrarSeriesAdmin(rows, filtro) {
+function filtrarSeriesAdmin(rows, filtro, categoria) {
   const q = filtro.trim().toLowerCase()
-  if (!q) return rows
-  return rows.filter(s =>
-    (s.codigo || '').toLowerCase().includes(q) ||
-    (s.nombre || '').toLowerCase().includes(q) ||
-    (s.encargadoNombre || '').toLowerCase().includes(q)
-  )
+  return rows.filter(s => {
+    if (categoria && s.categoria !== categoria) return false
+    if (!q) return true
+    return (
+      (s.codigo || '').toLowerCase().includes(q) ||
+      (s.nombre || '').toLowerCase().includes(q) ||
+      (s.encargadoNombre || '').toLowerCase().includes(q)
+    )
+  })
 }
 
-function toggleSeriesAdminExpandido() {
-  _seriesAdminExpandido = !_seriesAdminExpandido
+function cambiarPaginaSeriesAdmin(pagina) {
+  _seriesAdminPagina = pagina
+  renderSeriesAdminTable()
+}
+
+function cambiarPorPaginaSeriesAdmin(n) {
+  _seriesAdminPorPagina = Number(n)
+  _seriesAdminPagina = 1
+  renderSeriesAdminTable()
+}
+
+function cambiarFiltroCategoriaSeriesAdmin(categoria) {
+  _seriesAdminFiltroCategoria = categoria
+  _seriesAdminPagina = 1
   renderSeriesAdminTable()
 }
 
 function renderSeriesAdminTable() {
   const tbody = document.getElementById('tbody-series-admin')
+  const paginacion = document.getElementById('paginacion-series-admin')
   if (!tbody) return
 
   if (!_seriesAdminCache.length) {
     tbody.innerHTML = '<tr><td colspan="6" class="table-empty">Sin series documentales creadas todavía</td></tr>'
+    if (paginacion) paginacion.innerHTML = ''
     return
   }
 
-  const filtradas = filtrarSeriesAdmin(_seriesAdminCache, _seriesAdminFiltro)
+  const filtradas = filtrarSeriesAdmin(_seriesAdminCache, _seriesAdminFiltro, _seriesAdminFiltroCategoria)
   if (!filtradas.length) {
-    tbody.innerHTML = '<tr><td colspan="6" class="table-empty">Ninguna serie coincide con la búsqueda</td></tr>'
+    tbody.innerHTML = '<tr><td colspan="6" class="table-empty">Ninguna serie coincide con el filtro</td></tr>'
+    if (paginacion) paginacion.innerHTML = ''
     return
   }
 
-  // El límite de "más recientes" solo aplica sin filtro activo — un filtro
-  // nunca debe esconder un resultado real que sí coincide con lo buscado.
-  const hayFiltro = _seriesAdminFiltro.trim().length > 0
-  const recortar = !hayFiltro && !_seriesAdminExpandido && filtradas.length > SERIES_ADMIN_LIMITE_INICIAL
-  const visibles = recortar ? filtradas.slice(0, SERIES_ADMIN_LIMITE_INICIAL) : filtradas
+  const totalPaginas = Math.max(1, Math.ceil(filtradas.length / _seriesAdminPorPagina))
+  if (_seriesAdminPagina > totalPaginas) _seriesAdminPagina = totalPaginas
+  if (_seriesAdminPagina < 1) _seriesAdminPagina = 1
 
-  const filasHTML = visibles.map(s => {
+  const desde = (_seriesAdminPagina - 1) * _seriesAdminPorPagina
+  const visibles = filtradas.slice(desde, desde + _seriesAdminPorPagina)
+
+  tbody.innerHTML = visibles.map(s => {
     const padre = s.codigoPadre
       ? (buscarNodoPorCodigo([...FUNCIONES_SUSTANTIVAS, ...FUNCIONES_COMUNES], s.codigoPadre)?.name || s.codigoPadre)
       : '— Nivel raíz —'
@@ -1454,18 +1474,21 @@ function renderSeriesAdminTable() {
     </tr>`
   }).join('')
 
-  let toggleHTML = ''
-  if (!hayFiltro && filtradas.length > SERIES_ADMIN_LIMITE_INICIAL) {
-    const label = _seriesAdminExpandido ? 'Ver menos' : `Ver todas (${filtradas.length})`
-    toggleHTML = `
-    <tr>
-      <td colspan="6" style="text-align:center;">
-        <button class="btn btn-ghost btn-sm" onclick="toggleSeriesAdminExpandido()">${label}</button>
-      </td>
-    </tr>`
+  if (paginacion) {
+    const hasta = Math.min(desde + _seriesAdminPorPagina, filtradas.length)
+    let botonesPagina = ''
+    for (let p = 1; p <= totalPaginas; p++) {
+      const activo = p === _seriesAdminPagina ? ' series-admin-pagina-activa' : ''
+      botonesPagina += `<button class="series-admin-pagina-btn${activo}" onclick="cambiarPaginaSeriesAdmin(${p})">${p}</button>`
+    }
+    paginacion.innerHTML = `
+      <span class="series-admin-paginacion-texto">Mostrando ${desde + 1}–${hasta} de ${filtradas.length}</span>
+      <div class="series-admin-paginacion-controles">
+        <button class="btn btn-ghost btn-sm" ${_seriesAdminPagina === 1 ? 'disabled' : ''} onclick="cambiarPaginaSeriesAdmin(${_seriesAdminPagina - 1})">‹ Anterior</button>
+        ${botonesPagina}
+        <button class="btn btn-ghost btn-sm" ${_seriesAdminPagina === totalPaginas ? 'disabled' : ''} onclick="cambiarPaginaSeriesAdmin(${_seriesAdminPagina + 1})">Siguiente ›</button>
+      </div>`
   }
-
-  tbody.innerHTML = filasHTML + toggleHTML
 }
 
 function fmtDateInput(iso) {
@@ -1514,7 +1537,7 @@ function abrirEditarSerie(id) {
     `<button class="btn btn-ghost" onclick="closeModal()">Cancelar</button>
      <button class="btn btn-purple" id="btn-save-edit-serie">Guardar Cambios</button>`)
 
-  poblarSelectEncargadoSerie().then(() => {
+  poblarSelectEncargadoSerie('em-serie-encargado').then(() => {
     const sel = document.getElementById('em-serie-encargado')
     if (sel) sel.value = s.encargadoId || ''
   })
@@ -1583,8 +1606,19 @@ const _inputBuscarSeriesAdmin = document.getElementById('buscar-series-admin')
 if (_inputBuscarSeriesAdmin) {
   _inputBuscarSeriesAdmin.oninput = e => {
     _seriesAdminFiltro = e.target.value
+    _seriesAdminPagina = 1
     renderSeriesAdminTable()
   }
+}
+
+const _selectCategoriaSeriesAdmin = document.getElementById('filtro-categoria-series')
+if (_selectCategoriaSeriesAdmin) {
+  _selectCategoriaSeriesAdmin.onchange = e => cambiarFiltroCategoriaSeriesAdmin(e.target.value)
+}
+
+const _selectMostrarSeriesAdmin = document.getElementById('mostrar-series-admin')
+if (_selectMostrarSeriesAdmin) {
+  _selectMostrarSeriesAdmin.onchange = e => cambiarPorPaginaSeriesAdmin(e.target.value)
 }
 
 // ═══════════════════════════════════════════════════════════════
