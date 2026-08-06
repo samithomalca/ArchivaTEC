@@ -4,8 +4,10 @@ import { serieDocumentalService } from './series-documental.service'
 import {
   SerieDocumentalSchema,
   SerieDocumentalQuerySchema,
+  SerieDocumentalUpdateSchema,
   type SerieDocumentalDTO,
   type SerieDocumentalQueryDTO,
+  type SerieDocumentalUpdateDTO,
 } from './series-documental.schema'
 import { validateBody, validateQuery } from '../../middleware/validator.middleware'
 import { authMiddleware } from '../../middleware/auth.middleware'
@@ -37,6 +39,16 @@ seriesDocumentalesRoutes.post('/', validateBody(SerieDocumentalSchema), async (c
   const body = c.req.valid('json') as SerieDocumentalDTO
   const result = await serieDocumentalService.crear(body, caller?.sub)
   return c.json({ success: true, data: result }, 201)
+})
+
+seriesDocumentalesRoutes.patch('/:id', validateBody(SerieDocumentalUpdateSchema), async (c) => {
+  const caller = c.get('user') as any
+  if (!puedeGestionarSeries(caller)) {
+    throw new HTTPException(403, { message: 'No tienes permiso para editar series documentales' })
+  }
+  const body = c.req.valid('json') as SerieDocumentalUpdateDTO
+  const result = await serieDocumentalService.actualizar(c.req.param('id'), body)
+  return c.json({ success: true, data: result })
 })
 
 seriesDocumentalesRoutes.delete('/:id', async (c) => {

@@ -1635,6 +1635,26 @@ body {
   box-shadow: 0 2px 8px rgba(249,115,22,0.25);
 }
 
+.btn-action-goto {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  border: none;
+  border-radius: 6px;
+  background: var(--guinda-bg);
+  color: var(--guinda);
+  font-size: 15px;
+  cursor: pointer;
+  transition: all var(--transition);
+}
+.btn-action-goto:hover {
+  background: var(--guinda-border);
+  transform: translateY(-1px);
+  box-shadow: 0 2px 8px rgba(128,0,32,0.2);
+}
+
 /* ─── CHIPS DE ROL ────────────────────────────────────────────── */
 .rol-chip {
   display: inline-flex;
