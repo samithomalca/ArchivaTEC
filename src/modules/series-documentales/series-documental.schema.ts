@@ -11,7 +11,11 @@ export const SerieDocumentalSchema = z.object({
   nombre: z.string().min(1).max(200),
   categoria: CategoriaSerieSchema,
   codigoPadre: z.string().max(30).optional().nullable(),
-  encargado: z.string().max(200).optional(),
+  // No usa z.string().uuid(): los usuarios sembrados por defecto en
+  // migrate.ts tienen IDs con formato UUID pero sin nibble de versión
+  // válido (ej. "00000000-0000-0000-0000-000000000001"), que .uuid()
+  // rechaza por no cumplir RFC4122 estricto. Se valida solo la forma.
+  encargadoId: z.string().regex(/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i, 'ID de usuario inválido').optional().nullable(),
   fechaCreacion: z.coerce.date().optional(),
   fechaVencimiento: z.coerce.date().optional(),
 })

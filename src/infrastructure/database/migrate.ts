@@ -156,7 +156,7 @@ export async function initDatabase() {
       nombre VARCHAR(200) NOT NULL,
       categoria VARCHAR(20) NOT NULL,
       codigo_padre VARCHAR(30),
-      encargado VARCHAR(200),
+      encargado_id UUID REFERENCES usuarios(id),
       fecha_creacion TIMESTAMP,
       fecha_vencimiento TIMESTAMP,
       creado_por_id UUID REFERENCES usuarios(id),
@@ -164,6 +164,10 @@ export async function initDatabase() {
       actualizado_en TIMESTAMP DEFAULT NOW() NOT NULL
     )
   `))
+
+  // ─ Migración: "encargado" (texto libre) → "encargado_id" (FK a usuarios) ──
+  await tryExec(`ALTER TABLE series_documentales ADD COLUMN IF NOT EXISTS encargado_id UUID REFERENCES usuarios(id)`)
+  await tryExec(`ALTER TABLE series_documentales DROP COLUMN IF EXISTS encargado`)
 
   // ─ Seguridad: bloquear acceso público vía PostgREST (anon/authenticated) ──
   // El backend usa el rol "postgres" (BYPASSRLS), así que esto no afecta

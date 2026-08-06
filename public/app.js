@@ -1172,10 +1172,8 @@ function openNuevoUsuarioModal() {
 function construirOpcionesCarpetaPadre(nodes, depth = 0) {
   let html = ''
   for (const node of nodes) {
-    const esTerminal = !node.children || node.children.length === 0
-    const prefix = '    '.repeat(depth)
-    const advertencia = esTerminal ? ' ⚠ (terminal, puede tener documentos)' : ''
-    html += `<option value="${node.code}">${prefix}${node.code} — ${node.name}${advertencia}</option>`
+    const prefix = '    '.repeat(depth)
+    html += `<option value="${node.code}">${prefix}${node.code} — ${node.name}</option>`
     if (node.children && node.children.length) html += construirOpcionesCarpetaPadre(node.children, depth + 1)
   }
   return html
@@ -1186,6 +1184,24 @@ function poblarSelectCarpetaPadre(categoria) {
   if (!sel) return
   const tree = categoria === 'sustantivas' ? FUNCIONES_SUSTANTIVAS : FUNCIONES_COMUNES
   sel.innerHTML = `<option value="">— Nivel raíz (sin carpeta padre) —</option>` + construirOpcionesCarpetaPadre(tree)
+}
+
+// ─── Puebla el selector de "Encargado" del modal de creación de series con
+// la lista real de usuarios del sistema (mismo endpoint que Administración
+// de Usuarios, mismo permiso que ya protege crear series).
+async function poblarSelectEncargadoSerie() {
+  const sel = document.getElementById('m-serie-encargado')
+  if (!sel) return
+  sel.innerHTML = `<option value="">Cargando usuarios...</option>`
+  try {
+    const res = await api('GET', '/usuarios')
+    const lista = res.data || []
+    sel.innerHTML =
+      `<option value="">— Sin encargado asignado —</option>` +
+      lista.map(u => `<option value="${u.id}">${u.nombre} — ${u.rol}</option>`).join('')
+  } catch {
+    sel.innerHTML = `<option value="">— No se pudo cargar la lista de usuarios —</option>`
+  }
 }
 
 document.getElementById('btn-config-series').onclick = () => {
@@ -1216,7 +1232,8 @@ document.getElementById('btn-config-series').onclick = () => {
     </div>
     <div class="field-group">
       <label>Encargado de la subdivisión</label>
-      <input id="m-enc-serie" placeholder="Nombre del encargado" />
+      <select id="m-serie-encargado"><option value="">Cargando usuarios...</option></select>
+      <div id="m-serie-encargado-preview" style="display:none; margin-top:8px;"></div>
     </div>
     <div class="field-group">
       <label>Fecha de creación</label>
@@ -1231,6 +1248,24 @@ document.getElementById('btn-config-series').onclick = () => {
 
   poblarSelectCarpetaPadre('sustantivas')
   document.getElementById('m-serie-categoria').onchange = e => poblarSelectCarpetaPadre(e.target.value)
+
+  poblarSelectEncargadoSerie()
+  document.getElementById('m-serie-encargado').onchange = e => {
+    const preview = document.getElementById('m-serie-encargado-preview')
+    const opt = e.target.selectedOptions[0]
+    if (!e.target.value || !opt) { preview.style.display = 'none'; return }
+    const [nombreSel, rolSel] = opt.textContent.split(' — ')
+    const inicial = (nombreSel || '?').trim().charAt(0).toUpperCase()
+    preview.style.display = ''
+    preview.innerHTML = `
+      <div class="detail-encargado-card">
+        <div class="detail-avatar">${inicial}</div>
+        <div class="detail-encargado-info">
+          <div class="detail-encargado-name">${nombreSel}</div>
+          <div class="detail-encargado-div">${rolSel}</div>
+        </div>
+      </div>`
+  }
 
   document.getElementById('btn-save-serie').onclick = async () => {
     const nombre = document.getElementById('m-serie-nombre').value.trim()
@@ -1254,7 +1289,7 @@ document.getElementById('btn-config-series').onclick = () => {
         codigo,
         categoria,
         codigoPadre,
-        encargado: document.getElementById('m-enc-serie').value || undefined,
+        encargadoId: document.getElementById('m-serie-encargado').value || undefined,
         fechaCreacion: document.getElementById('m-fcreacion').value || undefined,
         fechaVencimiento: document.getElementById('m-fvencimiento').value || undefined,
       })
@@ -1277,6 +1312,9 @@ document.getElementById('btn-config-series').onclick = () => {
 
 // ─── Administración de Series Documentales (listar + eliminar) ────────────
 let _seriesAdminCache = []
+let _seriesAdminFiltro = ''
+let _seriesAdminExpandido = false
+const SERIES_ADMIN_LIMITE_INICIAL = 8
 
 async function loadSeriesAdmin() {
   const tbody = document.getElementById('tbody-series-admin')
@@ -1296,6 +1334,21 @@ async function loadSeriesAdmin() {
   }
 }
 
+function filtrarSeriesAdmin(rows, filtro) {
+  const q = filtro.trim().toLowerCase()
+  if (!q) return rows
+  return rows.filter(s =>
+    (s.codigo || '').toLowerCase().includes(q) ||
+    (s.nombre || '').toLowerCase().includes(q) ||
+    (s.encargadoNombre || '').toLowerCase().includes(q)
+  )
+}
+
+function toggleSeriesAdminExpandido() {
+  _seriesAdminExpandido = !_seriesAdminExpandido
+  renderSeriesAdminTable()
+}
+
 function renderSeriesAdminTable() {
   const tbody = document.getElementById('tbody-series-admin')
   if (!tbody) return
@@ -1305,29 +1358,55 @@ function renderSeriesAdminTable() {
     return
   }
 
-  tbody.innerHTML = _seriesAdminCache.map((s, idx) => {
+  const filtradas = filtrarSeriesAdmin(_seriesAdminCache, _seriesAdminFiltro)
+  if (!filtradas.length) {
+    tbody.innerHTML = '<tr><td colspan="6" class="table-empty">Ninguna serie coincide con la búsqueda</td></tr>'
+    return
+  }
+
+  // El límite de "más recientes" solo aplica sin filtro activo — un filtro
+  // nunca debe esconder un resultado real que sí coincide con lo buscado.
+  const hayFiltro = _seriesAdminFiltro.trim().length > 0
+  const recortar = !hayFiltro && !_seriesAdminExpandido && filtradas.length > SERIES_ADMIN_LIMITE_INICIAL
+  const visibles = recortar ? filtradas.slice(0, SERIES_ADMIN_LIMITE_INICIAL) : filtradas
+
+  const filasHTML = visibles.map(s => {
     const padre = s.codigoPadre
       ? (buscarNodoPorCodigo([...FUNCIONES_SUSTANTIVAS, ...FUNCIONES_COMUNES], s.codigoPadre)?.name || s.codigoPadre)
       : '— Nivel raíz —'
     const categoriaLabel = s.categoria === 'sustantivas' ? 'Sustantivas' : 'Comunes'
+    const encargadoLabel = s.encargadoNombre ? `${s.encargadoNombre} — ${s.encargadoRol}` : '— Sin encargado asignado —'
     return `
-    <tr data-idx="${idx}">
+    <tr data-id="${s.id}">
       <td style="font-weight:600;">${s.codigo}</td>
       <td>${s.nombre}</td>
       <td>${categoriaLabel}</td>
       <td style="font-size:12px;color:var(--gray-600);">${padre}</td>
-      <td style="font-size:12px;color:var(--gray-600);">${s.encargado || '—'}</td>
+      <td style="font-size:12px;color:var(--gray-600);">${encargadoLabel}</td>
       <td>
         <div class="action-btns">
-          <button class="btn-action-delete" title="Eliminar serie ${s.codigo}" onclick="confirmDeleteSerie(${idx})">🗑️</button>
+          <button class="btn-action-delete" title="Eliminar serie ${s.codigo}" onclick="confirmDeleteSerie('${s.id}')">🗑️</button>
         </div>
       </td>
     </tr>`
   }).join('')
+
+  let toggleHTML = ''
+  if (!hayFiltro && filtradas.length > SERIES_ADMIN_LIMITE_INICIAL) {
+    const label = _seriesAdminExpandido ? 'Ver menos' : `Ver todas (${filtradas.length})`
+    toggleHTML = `
+    <tr>
+      <td colspan="6" style="text-align:center;">
+        <button class="btn btn-ghost btn-sm" onclick="toggleSeriesAdminExpandido()">${label}</button>
+      </td>
+    </tr>`
+  }
+
+  tbody.innerHTML = filasHTML + toggleHTML
 }
 
-function confirmDeleteSerie(idx) {
-  const s = _seriesAdminCache[idx]
+function confirmDeleteSerie(id) {
+  const s = _seriesAdminCache.find(x => x.id === id)
   if (!s) return
 
   openModal('Confirmar Eliminación', `
@@ -1346,7 +1425,7 @@ function confirmDeleteSerie(idx) {
   document.getElementById('btn-confirm-delete').onclick = async () => {
     try {
       await api('DELETE', `/series-documentales/${s.id}`)
-      _seriesAdminCache.splice(idx, 1)
+      _seriesAdminCache = _seriesAdminCache.filter(x => x.id !== id)
       removeNodoDelArbol(s.codigo)
       renderSeriesAdminTable()
       closeModal()
@@ -1358,6 +1437,14 @@ function confirmDeleteSerie(idx) {
       if (err && err.status === 403) { toast('No tienes permiso para eliminar series documentales', 'error'); return }
       toast(err?.message || 'No se pudo eliminar la serie documental', 'error')
     }
+  }
+}
+
+const _inputBuscarSeriesAdmin = document.getElementById('buscar-series-admin')
+if (_inputBuscarSeriesAdmin) {
+  _inputBuscarSeriesAdmin.oninput = e => {
+    _seriesAdminFiltro = e.target.value
+    renderSeriesAdminTable()
   }
 }
 

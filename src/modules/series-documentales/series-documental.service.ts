@@ -1,6 +1,6 @@
 import { db } from '../../infrastructure/database/client'
-import { seriesDocumentales } from '../../infrastructure/database/schema'
-import { eq, and, sql } from 'drizzle-orm'
+import { seriesDocumentales, usuarios } from '../../infrastructure/database/schema'
+import { eq, and, sql, desc } from 'drizzle-orm'
 import { HTTPException } from 'hono/http-exception'
 import type { SerieDocumentalDTO, SerieDocumentalQueryDTO } from './series-documental.schema'
 
@@ -11,14 +11,32 @@ export class SerieDocumentalService {
 
     const conditions = []
     if (categoria) conditions.push(eq(seriesDocumentales.categoria, categoria))
+    const where = conditions.length ? and(...conditions) : undefined
 
     const [rows, [{ total }]] = await Promise.all([
-      db.select().from(seriesDocumentales)
-        .where(conditions.length ? and(...conditions) : undefined)
+      db
+        .select({
+          id: seriesDocumentales.id,
+          codigo: seriesDocumentales.codigo,
+          nombre: seriesDocumentales.nombre,
+          categoria: seriesDocumentales.categoria,
+          codigoPadre: seriesDocumentales.codigoPadre,
+          encargadoId: seriesDocumentales.encargadoId,
+          encargadoNombre: usuarios.nombre,
+          encargadoRol: usuarios.rol,
+          fechaCreacion: seriesDocumentales.fechaCreacion,
+          fechaVencimiento: seriesDocumentales.fechaVencimiento,
+          creadoPorId: seriesDocumentales.creadoPorId,
+          creadoEn: seriesDocumentales.creadoEn,
+          actualizadoEn: seriesDocumentales.actualizadoEn,
+        })
+        .from(seriesDocumentales)
+        .leftJoin(usuarios, eq(seriesDocumentales.encargadoId, usuarios.id))
+        .where(where)
+        .orderBy(desc(seriesDocumentales.creadoEn))
         .limit(limit)
         .offset(offset),
-      db.select({ total: sql<number>`count(*)` }).from(seriesDocumentales)
-        .where(conditions.length ? and(...conditions) : undefined),
+      db.select({ total: sql<number>`count(*)` }).from(seriesDocumentales).where(where),
     ])
 
     return {
@@ -48,6 +66,7 @@ export class SerieDocumentalService {
     const [nueva] = await db.insert(seriesDocumentales).values({
       ...data,
       codigoPadre: data.codigoPadre || null,
+      encargadoId: data.encargadoId || null,
       creadoPorId: creadoPorId ?? null,
     }).returning()
 
